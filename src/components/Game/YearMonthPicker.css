@@ -1,0 +1,54 @@
+.year-month-picker {
+  width: 100%;
+}
+
+.year-month-picker h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: var(--secondary-color);
+}
+
+.date-inputs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.month-select,
+.year-select {
+  flex: 1;
+}
+
+.month-select select,
+.year-select input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--light-gray);
+  border-radius: 4px;
+}
+
+.time-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #777;
+}
+
+.timeline {
+  flex: 1;
+  height: 4px;
+  background-color: #ddd;
+  position: relative;
+  border-radius: 2px;
+}
+
+.timeline-marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
