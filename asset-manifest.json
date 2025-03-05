@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/meme-timeline-game/static/css/main.04a771ae.css",
+    "main.js": "/meme-timeline-game/static/js/main.d0930f05.js",
+    "index.html": "/meme-timeline-game/index.html",
+    "main.04a771ae.css.map": "/meme-timeline-game/static/css/main.04a771ae.css.map",
+    "main.d0930f05.js.map": "/meme-timeline-game/static/js/main.d0930f05.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.04a771ae.css",
+    "static/js/main.d0930f05.js"
+  ]
+}
