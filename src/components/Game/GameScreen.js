@@ -29,15 +29,8 @@ function GameScreen() {
   const [isGuessing, setIsGuessing] = useState(true);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [difficulty, setDifficulty] = useState('medium');
   const [error, setError] = useState('');
-
-  // Game difficulty levels - now affects scoring multiplier
-  const DIFFICULTY_SETTINGS = {
-    easy: { multiplier: 1.0, label: 'Easy' },
-    medium: { multiplier: 1.5, label: 'Medium' },
-    hard: { multiplier: 2.0, label: 'Hard' }
-  };
+  const [showCorrectAnswer, setShowCorrectAnswer] = useState(false);
 
   useEffect(() => {
     // Fetch videos from Firestore
@@ -93,15 +86,14 @@ function GameScreen() {
     setMemeName(name);
   };
 
-  const handleDifficultyChange = (newDifficulty) => {
-    setDifficulty(newDifficulty);
-  };
-
   const handleSubmitGuess = () => {
     if (!currentVideo) return;
     
-    // Get the multiplier for the selected difficulty
-    const { multiplier } = DIFFICULTY_SETTINGS[difficulty];
+    // Get the difficulty from the video data, default to 'medium' if not set
+    const difficulty = currentVideo.difficulty || 'medium';
+    const difficultyMultiplier = 
+      difficulty === 'easy' ? 1.0 : 
+      difficulty === 'hard' ? 2.0 : 1.5; // medium is default at 1.5
     
     // Score for the date (month and year)
     const dateResult = calculateDateScore(
@@ -118,16 +110,16 @@ function GameScreen() {
     const nameResult = calculateMemeNameScore(memeName, currentVideo.memeName);
     
     // Calculate total score with difficulty multiplier
-    const totalScore = Math.round((dateResult.score + countryResult.score + nameResult.score) * multiplier);
+    const totalScore = Math.round((dateResult.score + countryResult.score + nameResult.score) * difficultyMultiplier);
     
     // Create feedback
-    const dateFeedback = `${dateResult.feedback} The correct date was ${getMonthName(currentVideo.month)} ${currentVideo.year}.`;
+    const dateFeedback = `${dateResult.feedback}`;
     const feedbackText = `
       ${dateFeedback}
       ${countryResult.feedback}
       ${nameResult.feedback}
       
-      Total points: ${totalScore} (${multiplier}x multiplier for ${difficulty} difficulty)
+      Total points: ${totalScore} (${difficultyMultiplier}x multiplier for ${difficulty} difficulty)
     `;
     
     // Update score and feedback
@@ -137,6 +129,9 @@ function GameScreen() {
     
     setFeedback(feedbackText);
     setIsGuessing(false);
+    
+    // Show correct answer details after submitting
+    setShowCorrectAnswer(true);
   };
 
   const handleNextVideo = () => {
@@ -152,6 +147,7 @@ function GameScreen() {
     // Reset state for next round
     setFeedback('');
     setIsGuessing(true);
+    setShowCorrectAnswer(false);
     setSelectedYear(2015);
     setSelectedMonth(6);
     setSelectedCountry('United States');
@@ -185,82 +181,92 @@ function GameScreen() {
       </div>
     );
   }
+  
+  const difficultyLabels = {
+    easy: "Easy 😊",
+    medium: "Medium 😐",
+    hard: "Hard 😨"
+  };
 
   return (
     <div className="game-container">
       <h1>Meme Timeline Challenge</h1>
       <p className="game-subtitle">Guess when and where the meme originated!</p>
       
-      <div className="difficulty-selector">
-        <label>Difficulty:</label>
-        <div className="difficulty-buttons">
-          {Object.entries(DIFFICULTY_SETTINGS).map(([key, { label }]) => (
-            <button
-              key={key}
-              className={`difficulty-button ${difficulty === key ? 'active' : ''}`}
-              onClick={() => handleDifficultyChange(key)}
-              disabled={!isGuessing}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {/* Difficulty indicator - shows the admin-set difficulty */}
+      <div className="difficulty-indicator">
+        <span className={`difficulty-badge ${currentVideo.difficulty || 'medium'}`}>
+          {difficultyLabels[currentVideo.difficulty || 'medium']}
+        </span>
       </div>
       
       <div className="game-content">
-        <div className="video-container">
-          <VideoPlayer videoId={currentVideo.youtubeId} />
-        </div>
-        
-        <div className="game-controls">
-          <YearMonthPicker
-            selectedYear={selectedYear}
-            selectedMonth={selectedMonth}
-            onYearChange={handleYearChange}
-            onMonthChange={handleMonthChange}
-            disabled={!isGuessing}
-          />
+        <div className="video-section">
+          <div className="video-container">
+            <VideoPlayer videoId={currentVideo.youtubeId} />
+          </div>
           
-          <MemeNameInput
-            memeName={memeName}
-            onChange={handleMemeNameChange}
-            disabled={!isGuessing}
-          />
-          
-          <CountrySelector
-            countries={countries}
-            selectedCountry={selectedCountry}
-            onChange={handleCountryChange}
-            disabled={!isGuessing}
-          />
-          
-          {isGuessing ? (
-            <button 
-              onClick={handleSubmitGuess} 
-              className="guess-button"
-              disabled={!memeName.trim()}
-            >
-              Submit Guess
-            </button>
-          ) : (
-            <button 
-              onClick={handleNextVideo} 
-              className="next-button"
-            >
-              Next Meme
-            </button>
+          {showCorrectAnswer && (
+            <div className="correct-answer">
+              <h3>Correct Answer:</h3>
+              <p><strong>Meme:</strong> {currentVideo.memeName}</p>
+              <p><strong>Date:</strong> {getMonthName(currentVideo.month)} {currentVideo.year}</p>
+              <p><strong>Origin:</strong> {currentVideo.country}</p>
+            </div>
           )}
         </div>
-      </div>
-      
-      {feedback && (
-        <div className="feedback-container">
-          <h3>Results</h3>
-          <pre>{feedback}</pre>
+        
+        <div className="controls-section">
+          <div className="game-controls">
+            <YearMonthPicker
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              onYearChange={handleYearChange}
+              onMonthChange={handleMonthChange}
+              disabled={!isGuessing}
+            />
+            
+            <MemeNameInput
+              memeName={memeName}
+              onChange={handleMemeNameChange}
+              disabled={!isGuessing}
+            />
+            
+            <CountrySelector
+              countries={countries}
+              selectedCountry={selectedCountry}
+              onChange={handleCountryChange}
+              disabled={!isGuessing}
+            />
+            
+            {isGuessing ? (
+              <button 
+                onClick={handleSubmitGuess} 
+                className="guess-button"
+                disabled={!memeName.trim()}
+              >
+                Submit Guess
+              </button>
+            ) : (
+              <button 
+                onClick={handleNextVideo} 
+                className="next-button"
+              >
+                Next Meme
+              </button>
+            )}
+          </div>
+          
+          {feedback && (
+            <div className="feedback-container">
+              <h3>Results</h3>
+              <pre>{feedback}</pre>
+            </div>
+          )}
+          
+          <ScoreDisplay score={score} />
         </div>
-      )}
-      
-      <ScoreDisplay score={score} />
+      </div>
     </div>
   );
 }

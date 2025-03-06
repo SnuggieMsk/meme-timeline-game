@@ -1,23 +1,157 @@
+/* src/components/Game/CountrySelector.css */
 .country-selector {
   width: 100%;
+  background-color: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .country-selector h3 {
   margin-top: 0;
   margin-bottom: 15px;
   color: var(--secondary-color);
+  font-size: 1.2rem;
+  text-align: center;
 }
 
-.country-selector select {
+/* Custom dropdown styling */
+.custom-select {
+  position: relative;
   width: 100%;
-  padding: 10px;
-  border: 1px solid var(--light-gray);
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
+  margin-bottom: 15px;
 }
 
-.country-selector select:disabled {
+.select-selected {
+  padding: 14px 15px;
+  background-color: #f9f9f9;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.custom-select:not(.disabled) .select-selected:hover {
+  background-color: #f0f0f0;
+}
+
+.custom-select.open .select-selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 69, 0, 0.2);
+  border-radius: 8px 8px 0 0;
+}
+
+.custom-select.disabled .select-selected {
   background-color: #f5f5f5;
   cursor: not-allowed;
+  color: #777;
+  border-color: #ddd;
+}
+
+.select-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #888;
+  transition: transform 0.3s ease;
+}
+
+.custom-select.open .select-arrow {
+  transform: rotate(180deg);
+}
+
+.select-items {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background-color: white;
+  border: 2px solid var(--primary-color);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.country-group {
+  padding: 5px 0;
+}
+
+.group-label {
+  padding: 8px 15px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  background-color: #f5f5f5;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.select-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.select-item:hover {
+  background-color: #f5f5f5;
+}
+
+.select-item.selected {
+  background-color: rgba(255, 69, 0, 0.1);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* Quick selection buttons */
+.quick-countries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.quick-country-btn {
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: fit-content;
+  max-width: calc(50% - 4px);
+  text-align: center;
+}
+
+.quick-country-btn:hover:not(:disabled) {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.quick-country-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+  border-color: var(--primary-color);
+}
+
+.quick-country-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }

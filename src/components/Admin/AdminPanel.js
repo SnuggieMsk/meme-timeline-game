@@ -1,9 +1,9 @@
 // src/components/Admin/AdminPanel.js
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '../../firebase';
-import { countries, memeCategories, getMonths } from '../../data/memeData';
+import { countries, memeCategories, getMonths, getMonthName } from '../../data/memeData';
 import './AdminPanel.css';
 
 function AdminPanel() {
@@ -13,12 +13,22 @@ function AdminPanel() {
   const [month, setMonth] = useState(1);
   const [country, setCountry] = useState('United States');
   const [category, setCategory] = useState('Image Macros');
+  const [difficulty, setDifficulty] = useState('medium');
   const [status, setStatus] = useState('');
   const [statusType, setStatusType] = useState('');
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editId, setEditId] = useState(null);
   
   const months = getMonths();
+  
+  // Difficulty options
+  const difficultyOptions = [
+    { value: 'easy', label: 'Easy', description: 'For well-known memes (1x points)' },
+    { value: 'medium', label: 'Medium', description: 'For moderately known memes (1.5x points)' },
+    { value: 'hard', label: 'Hard', description: 'For obscure or difficult memes (2x points)' }
+  ];
 
   // Get a list of videos on component mount
   useEffect(() => {
@@ -44,6 +54,33 @@ function AdminPanel() {
     fetchVideos();
   }, []);
 
+  const resetForm = () => {
+    setYoutubeId('');
+    setMemeName('');
+    setYear(2020);
+    setMonth(1);
+    setCountry('United States');
+    setCategory('Image Macros');
+    setDifficulty('medium');
+    setEditMode(false);
+    setEditId(null);
+  };
+
+  const handleEditVideo = (video) => {
+    setYoutubeId(video.youtubeId);
+    setMemeName(video.memeName);
+    setYear(video.year);
+    setMonth(video.month || 1);
+    setCountry(video.country);
+    setCategory(video.category || 'Image Macros');
+    setDifficulty(video.difficulty || 'medium');
+    setEditMode(true);
+    setEditId(video.id);
+    
+    // Scroll to form
+    document.querySelector('.video-form-card').scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('');
@@ -64,41 +101,51 @@ function AdminPanel() {
         return;
       }
       
-      // Add a new video document to Firestore
-      const docRef = await addDoc(collection(db, 'memeVideos'), {
+      const memeData = {
         youtubeId,
         memeName,
         year: parseInt(year),
         month: parseInt(month),
         country,
         category,
-        createdAt: serverTimestamp()
-      });
+        difficulty,
+        lastUpdated: serverTimestamp()
+      };
       
-      // Add the new video to the list with a temporary ID until refresh
-      setVideos(prev => [{
-        id: docRef.id,
-        youtubeId,
-        memeName,
-        year: parseInt(year),
-        month: parseInt(month),
-        country,
-        category,
-        createdAt: new Date()
-      }, ...prev]);
-      
-      setStatus('Meme video added successfully!');
-      setStatusType('success');
+      if (editMode) {
+        // Update existing document
+        await updateDoc(doc(db, 'memeVideos', editId), memeData);
+        
+        // Update the video in the list
+        setVideos(prev => prev.map(video => 
+          video.id === editId 
+            ? { ...video, ...memeData, lastUpdated: new Date() }
+            : video
+        ));
+        
+        setStatus('Meme video updated successfully!');
+        setStatusType('success');
+      } else {
+        // Add a new video document to Firestore
+        memeData.createdAt = serverTimestamp();
+        const docRef = await addDoc(collection(db, 'memeVideos'), memeData);
+        
+        // Add the new video to the list with a temporary ID until refresh
+        setVideos(prev => [{
+          id: docRef.id,
+          ...memeData,
+          createdAt: new Date(),
+          lastUpdated: new Date()
+        }, ...prev]);
+        
+        setStatus('Meme video added successfully!');
+        setStatusType('success');
+      }
       
       // Reset form
-      setYoutubeId('');
-      setMemeName('');
-      setYear(2020);
-      setMonth(1);
-      setCountry('United States');
-      setCategory('Image Macros');
+      resetForm();
     } catch (error) {
-      setStatus('Error adding meme video: ' + error.message);
+      setStatus(`Error ${editMode ? 'updating' : 'adding'} meme video: ` + error.message);
       setStatusType('error');
     }
   };
@@ -113,6 +160,11 @@ function AdminPanel() {
       setVideos(prev => prev.filter(video => video.id !== id));
       setStatus('Meme video deleted successfully!');
       setStatusType('success');
+      
+      // If we were editing this video, reset the form
+      if (editMode && editId === id) {
+        resetForm();
+      }
     } catch (error) {
       setStatus('Error deleting video: ' + error.message);
       setStatusType('error');
@@ -140,7 +192,7 @@ function AdminPanel() {
       
       <div className="admin-content">
         <div className="video-form-card">
-          <h2>Add New Meme Video</h2>
+          <h2>{editMode ? 'Edit Meme Video' : 'Add New Meme Video'}</h2>
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -234,7 +286,36 @@ function AdminPanel() {
               </select>
             </div>
             
-            <button type="submit" className="submit-button">Add Meme</button>
+            <div className="form-group difficulty-selection">
+              <label>Difficulty Level:</label>
+              <div className="difficulty-options">
+                {difficultyOptions.map(option => (
+                  <div 
+                    key={option.value}
+                    className={`difficulty-option ${difficulty === option.value ? 'selected' : ''}`}
+                    onClick={() => setDifficulty(option.value)}
+                  >
+                    <div className={`difficulty-label ${option.value}`}>{option.label}</div>
+                    <div className="difficulty-description">{option.description}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="form-buttons">
+              {editMode && (
+                <button 
+                  type="button" 
+                  onClick={resetForm} 
+                  className="cancel-button"
+                >
+                  Cancel
+                </button>
+              )}
+              <button type="submit" className="submit-button">
+                {editMode ? 'Update Meme' : 'Add Meme'}
+              </button>
+            </div>
           </form>
         </div>
         
@@ -260,17 +341,28 @@ function AdminPanel() {
                         alt="Video thumbnail" 
                       />
                     </a>
+                    <div className={`difficulty-tag ${video.difficulty || 'medium'}`}>
+                      {video.difficulty ? video.difficulty.charAt(0).toUpperCase() + video.difficulty.slice(1) : 'Medium'}
+                    </div>
                   </div>
                   <div className="video-details">
                     <h3>{video.memeName}</h3>
-                    <p><strong>Date:</strong> {months.find(m => m.value === video.month)?.label} {video.year}</p>
+                    <p><strong>Date:</strong> {getMonthName(video.month || 1)} {video.year}</p>
                     <p><strong>Origin:</strong> {video.country}</p>
-                    <button 
-                      onClick={() => handleDeleteVideo(video.id)}
-                      className="delete-button"
-                    >
-                      Delete
-                    </button>
+                    <div className="video-actions">
+                      <button 
+                        onClick={() => handleEditVideo(video)}
+                        className="edit-button"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteVideo(video.id)}
+                        className="delete-button"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
