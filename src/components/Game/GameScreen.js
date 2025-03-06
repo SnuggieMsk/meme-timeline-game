@@ -1,6 +1,6 @@
 // src/components/Game/GameScreen.js
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, addDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { 
   getMonths, 
@@ -16,6 +16,7 @@ import YearMonthPicker from './YearMonthPicker';
 import MemeNameInput from './MemeNameInput';
 import CountrySelector from './CountrySelector';
 import ScoreDisplay from './ScoreDisplay';
+import Leaderboard from './Leaderboard'; // Import the new Leaderboard component
 import './GameScreen.css';
 
 function GameScreen() {
@@ -31,6 +32,19 @@ function GameScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCorrectAnswer, setShowCorrectAnswer] = useState(false);
+  
+  // Leaderboard state variables
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [scoreThreshold, setScoreThreshold] = useState(50); // Minimum score to show leaderboard option
+  const [gameOver, setGameOver] = useState(false);
+  const [gamesPlayed, setGamesPlayed] = useState(0);
+
+  // Game difficulty levels - now affects scoring multiplier
+  const DIFFICULTY_SETTINGS = {
+    easy: { multiplier: 1.0, label: 'Easy 😊' },
+    medium: { multiplier: 1.5, label: 'Medium 😐' },
+    hard: { multiplier: 2.0, label: 'Hard 😨' }
+  };
 
   useEffect(() => {
     // Fetch videos from Firestore
@@ -67,6 +81,14 @@ function GameScreen() {
     const savedScore = localStorage.getItem('memeGameScore');
     if (savedScore) {
       setScore(parseInt(savedScore, 10));
+    }
+  }, []);
+
+  // Load games played count from localStorage
+  useEffect(() => {
+    const savedGamesPlayed = localStorage.getItem('gamesPlayed');
+    if (savedGamesPlayed) {
+      setGamesPlayed(parseInt(savedGamesPlayed, 10));
     }
   }, []);
 
@@ -152,6 +174,42 @@ function GameScreen() {
     setSelectedMonth(6);
     setSelectedCountry('United States');
     setMemeName('');
+    
+    // Increment games played
+    const newGamesPlayed = gamesPlayed + 1;
+    setGamesPlayed(newGamesPlayed);
+    localStorage.setItem('gamesPlayed', newGamesPlayed.toString());
+    
+    // Check if game should end (after 5 rounds)
+    if (newGamesPlayed % 5 === 0) {
+      setGameOver(true);
+    }
+  };
+  
+  // Leaderboard handler functions
+  const handleLeaderboardClose = () => {
+    setShowLeaderboard(false);
+    setGameOver(false);
+    
+    // If game was over when leaderboard was shown, reset score
+    if (gameOver) {
+      setScore(0);
+      localStorage.setItem('memeGameScore', '0');
+      setGamesPlayed(0);
+      localStorage.setItem('gamesPlayed', '0');
+    }
+  };
+
+  const handleViewLeaderboard = () => {
+    setShowLeaderboard(true);
+  };
+
+  const handleSkipLeaderboard = () => {
+    setGameOver(false);
+    setScore(0);
+    localStorage.setItem('memeGameScore', '0');
+    setGamesPlayed(0);
+    localStorage.setItem('gamesPlayed', '0');
   };
 
   if (loading) {
@@ -198,6 +256,15 @@ function GameScreen() {
         <span className={`difficulty-badge ${currentVideo.difficulty || 'medium'}`}>
           {difficultyLabels[currentVideo.difficulty || 'medium']}
         </span>
+        
+        {/* Leaderboard button */}
+        <button 
+          className="leaderboard-button"
+          onClick={handleViewLeaderboard}
+          title="View Leaderboard"
+        >
+          🏆 Leaderboard
+        </button>
       </div>
       
       <div className="game-content">
@@ -267,6 +334,54 @@ function GameScreen() {
           <ScoreDisplay score={score} />
         </div>
       </div>
+      
+      {/* Game over modal */}
+      {gameOver && !showLeaderboard && (
+        <div className="game-over-overlay">
+          <div className="game-over-modal">
+            <h2>Game Over!</h2>
+            <p>You've completed 5 rounds!</p>
+            <p>Your final score: <strong>{score}</strong></p>
+            
+            <div className="game-over-buttons">
+              {score >= scoreThreshold ? (
+                <button 
+                  className="submit-score-button"
+                  onClick={handleViewLeaderboard}
+                >
+                  Submit to Leaderboard
+                </button>
+              ) : (
+                <button 
+                  className="view-leaderboard-button"
+                  onClick={handleViewLeaderboard}
+                >
+                  View Leaderboard
+                </button>
+              )}
+              
+              <button 
+                className="skip-button"
+                onClick={handleSkipLeaderboard}
+              >
+                Start New Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Leaderboard modal */}
+      {showLeaderboard && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <Leaderboard 
+              currentScore={score} 
+              onClose={handleLeaderboardClose} 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
