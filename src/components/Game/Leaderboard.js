@@ -119,9 +119,16 @@ function Leaderboard({ currentScore, onClose }) {
         score: currentScore,
         timestamp: new Date()
       };
+
+      console.log("Entry data:", newEntry);
+
       
       // Add to Firestore
+      const leaderboardRef = collection(db, 'leaderboard');
+      console.log("Collection reference created");
+      
       const docRef = await addDoc(collection(db, 'leaderboard'), newEntry);
+      console.log("Document added with ID:", docRef.id);
       
       // Add the new entry to the local leaderboard data
       const newLeaderboardData = [...leaderboardData];
@@ -221,6 +228,8 @@ function Leaderboard({ currentScore, onClose }) {
           <form onSubmit={handleSubmitScore}>
             <input
               type="text"
+              id="playerNameInput"  // Add this
+              name="playerName"     // Add this
               placeholder="Enter your name"
               value={playerName}
               onChange={e => setPlayerName(e.target.value)}
