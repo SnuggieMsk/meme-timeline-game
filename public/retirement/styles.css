@@ -327,6 +327,66 @@ output {
   border-bottom: 1px solid var(--hairline);
 }
 
+.ledger.has-stop .ledger-row {
+  grid-template-columns: 1fr 110px 150px;
+}
+
+.ledger-stop {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ledger-stop .stop-year {
+  margin-top: 0;
+  text-align: center;
+  padding: 9px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: var(--gold-veil);
+  border-color: var(--gold-soft);
+  color: var(--navy);
+}
+
+.ledger-stop .stop-year:focus {
+  background: #fff;
+}
+
+.ledger-stop .stop-suffix {
+  position: absolute;
+  bottom: -14px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.ledger-stop-empty {
+  color: var(--muted-2);
+  font-size: 14px;
+  text-align: center;
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .ledger.has-stop .ledger-row {
+    grid-template-columns: 1fr 110px;
+    grid-template-rows: auto auto;
+  }
+  .ledger.has-stop .ledger-row > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .ledger-stop {
+    justify-content: flex-start;
+  }
+}
+
 .ledger-label {
   font-size: 14px;
   color: var(--ink-2);
@@ -373,6 +433,67 @@ output {
   font-variant-numeric: tabular-nums;
   text-transform: none;
   letter-spacing: 0;
+}
+
+.ledger-subfoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 0 0;
+  margin-top: 10px;
+  border-top: 1px dashed var(--hairline-strong);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ledger-subfoot > span:first-child {
+  flex: 1;
+  line-height: 1.45;
+  font-size: 11px;
+}
+
+.ledger-grand.muted-grand {
+  color: var(--gold);
+  font-size: 22px;
+}
+
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 4px;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+.field-helper {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 4px 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.link-btn:hover {
+  color: var(--navy);
+  border-bottom-color: var(--gold);
 }
 
 /* ============ KPI ============ */
