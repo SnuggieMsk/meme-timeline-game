@@ -5,11 +5,102 @@
     maximumFractionDigits: 0,
   });
 
-  const fmtNum = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+  // ============================================================
+  // Expense / instrument ledger schemas
+  // ============================================================
+  const RETIREMENT_INSTRUMENTS = [
+    { id: "equity-mf", label: "Equity mutual funds (SIP)", hint: "Diversified, large/mid/flexi cap", default: 60000 },
+    { id: "ppf-epf", label: "PPF & EPF", hint: "Tax-favored, sovereign-backed", default: 25000 },
+    { id: "nps", label: "NPS (Tier I)", hint: "Long-horizon, equity-debt blend", default: 10000 },
+    { id: "debt-mf", label: "Debt & hybrid funds", hint: "Stability, accrual income", default: 15000 },
+    { id: "fd-bonds", label: "FDs & bonds", hint: "Fixed-income ladder", default: 10000 },
+    { id: "direct-equity", label: "Direct equity", hint: "Concentrated convictions", default: 0 },
+    { id: "alts", label: "AIF / PMS / unlisted", hint: "Alternates, REITs, gold", default: 0 },
+    { id: "other-inv", label: "Other recurring investment", hint: "", default: 0 },
+  ];
 
+  const ESSENTIALS = [
+    { id: "housing", label: "Housing — rent, society dues, property tax", hint: "Includes building maintenance", default: 60000 },
+    { id: "emi-home", label: "Home loan EMI", hint: "", default: 80000 },
+    { id: "emi-other", label: "Other EMIs (auto, personal, education)", hint: "", default: 25000 },
+    { id: "utilities", label: "Utilities", hint: "Electricity, water, gas, internet, mobile", default: 12000 },
+    { id: "groceries", label: "Groceries & household", hint: "Provisions, daily needs", default: 35000 },
+    { id: "transport", label: "Transport & fuel", hint: "Personal vehicle, cabs, public transit", default: 12000 },
+    { id: "domestic", label: "Domestic help, cook, driver", hint: "", default: 20000 },
+    { id: "education", label: "Children's education & coaching", hint: "Fees, books, tutoring", default: 35000 },
+    { id: "healthcare", label: "Healthcare — regular & insurance", hint: "Premiums, OPD, medication", default: 15000 },
+    { id: "dependents", label: "Dependent support", hint: "Parents, family obligations", default: 10000 },
+    { id: "other-ess", label: "Other essentials", hint: "", default: 5000 },
+  ];
+
+  const DISCRETIONARY = [
+    { id: "dining", label: "Dining out & food delivery", hint: "", default: 18000 },
+    { id: "travel", label: "Travel & holidays", hint: "Annualised monthly equivalent", default: 25000 },
+    { id: "entertainment", label: "Entertainment & memberships", hint: "OTT, club, events", default: 8000 },
+    { id: "lifestyle", label: "Shopping & lifestyle", hint: "Apparel, gadgets, home", default: 20000 },
+    { id: "wellness", label: "Wellness & personal care", hint: "Salon, spa, gym, fitness", default: 8000 },
+    { id: "gifts", label: "Gifts & social occasions", hint: "Weddings, festivals, philanthropy", default: 10000 },
+    { id: "other-disc", label: "Other discretionary", hint: "", default: 5000 },
+  ];
+
+  // ============================================================
+  // Build ledgers
+  // ============================================================
+  function buildLedger(containerId, items) {
+    const c = document.getElementById(containerId);
+    c.innerHTML = items
+      .map(
+        (it) => `
+        <div class="ledger-row">
+          <div>
+            <span class="ledger-label">${it.label}</span>
+            ${it.hint ? `<span class="ledger-hint">${it.hint}</span>` : ""}
+          </div>
+          <div class="input-prefix">
+            <span>₹</span>
+            <input type="number" data-key="${it.id}" value="${it.default}" min="0" step="500" />
+          </div>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  buildLedger("r-instruments", RETIREMENT_INSTRUMENTS);
+  buildLedger("e-essentials", ESSENTIALS);
+  buildLedger("e-discretionary", DISCRETIONARY);
+
+  // ============================================================
+  // Helpers
+  // ============================================================
   function num(id) {
-    const v = parseFloat(document.getElementById(id).value);
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const v = parseFloat(el.value);
     return isFinite(v) ? v : 0;
+  }
+
+  function ledgerSum(containerId) {
+    const inputs = document.querySelectorAll(`#${containerId} input[type="number"]`);
+    let total = 0;
+    inputs.forEach((i) => {
+      const v = parseFloat(i.value);
+      if (isFinite(v)) total += v;
+    });
+    return total;
+  }
+
+  function abbrev(v) {
+    if (v == null || !isFinite(v)) return "—";
+    if (Math.abs(v) >= 1e7) return "₹" + (v / 1e7).toFixed(1) + " Cr";
+    if (Math.abs(v) >= 1e5) return "₹" + (v / 1e5).toFixed(1) + " L";
+    if (Math.abs(v) >= 1e3) return "₹" + (v / 1e3).toFixed(0) + " K";
+    return "₹" + Math.round(v);
+  }
+
+  function abbrevFull(v) {
+    if (Math.abs(v) >= 1e7) return fmtINR.format(v) + ` (${(v / 1e7).toFixed(2)} Cr)`;
+    return fmtINR.format(v);
   }
 
   // ============================================================
@@ -25,25 +116,30 @@
       btn.classList.add("active");
       btn.setAttribute("aria-selected", "true");
       document.getElementById(btn.dataset.tab).classList.add("active");
-      // resize charts that may be hidden
       if (waterfall) waterfall.resize();
       if (emergencyChart) emergencyChart.resize();
     });
   });
 
   // ============================================================
-  // RETIREMENT CALCULATOR
+  // RETIREMENT
   // ============================================================
   let waterfall;
 
   function calcRetirement() {
+    const monthly = ledgerSum("r-instruments");
+    document.getElementById("r-monthlyTotal").textContent = fmtINR.format(monthly);
+
     const currentAge = num("r-currentAge");
     const retireAge = num("r-retireAge");
     const startCorpus = num("r-startCorpus");
-    let monthly = num("r-monthly");
     const annualRate = num("r-rate") / 100;
     const inflation = num("r-inflation") / 100;
     const stepup = num("r-stepup") / 100;
+
+    const targetSpendToday = num("r-targetSpend");
+    const retYears = num("r-retYears");
+    const postRate = num("r-postRate") / 100;
 
     const years = Math.max(0, retireAge - currentAge);
     const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
@@ -52,6 +148,7 @@
     let corpus = startCorpus;
     let totalInvested = startCorpus;
     let totalReturns = 0;
+    let monthlyContrib = monthly;
 
     for (let y = 1; y <= years; y++) {
       const opening = corpus;
@@ -60,9 +157,9 @@
 
       for (let m = 0; m < 12; m++) {
         const interest = corpus * monthlyRate;
-        corpus += interest + monthly;
+        corpus += interest + monthlyContrib;
         yearReturn += interest;
-        yearContribution += monthly;
+        yearContribution += monthlyContrib;
       }
 
       totalInvested += yearContribution;
@@ -81,23 +178,31 @@
         realClosing,
       });
 
-      // step-up next year's monthly contribution
-      monthly = monthly * (1 + stepup);
+      monthlyContrib = monthlyContrib * (1 + stepup);
     }
 
     const finalCorpus = corpus;
     const realFinal = years > 0 ? finalCorpus / Math.pow(1 + inflation, years) : finalCorpus;
     const realRate = (1 + annualRate) / (1 + inflation) - 1;
 
-    document.getElementById("r-finalNominal").textContent = fmtINR.format(finalCorpus);
-    document.getElementById("r-finalReal").textContent = fmtINR.format(realFinal);
-    document.getElementById("r-totalInvested").textContent = fmtINR.format(totalInvested);
-    document.getElementById("r-totalReturns").textContent = fmtINR.format(totalReturns);
+    document.getElementById("r-finalNominal").textContent = abbrev(finalCorpus);
+    document.getElementById("r-finalNominalSub").textContent = "= " + fmtINR.format(finalCorpus);
+    document.getElementById("r-finalReal").textContent = abbrev(realFinal);
+    document.getElementById("r-totalInvested").textContent = abbrev(totalInvested);
+    document.getElementById("r-totalReturns").textContent = abbrev(totalReturns);
     document.getElementById("r-realRate").textContent = (realRate * 100).toFixed(2) + "%";
     document.getElementById("r-years").textContent = years;
 
     renderRetirementTable(rows);
     renderWaterfall(startCorpus, rows);
+    renderLifestyle({
+      finalCorpus,
+      targetSpendToday,
+      yearsToRetire: years,
+      inflation,
+      retYears,
+      postRate,
+    });
   }
 
   function renderRetirementTable(rows) {
@@ -118,7 +223,6 @@
   }
 
   function renderWaterfall(startCorpus, rows) {
-    // Bucket years for readability if there are many
     const bucketSize = rows.length > 20 ? 5 : rows.length > 10 ? 2 : 1;
 
     const buckets = [];
@@ -126,18 +230,16 @@
       const slice = rows.slice(i, i + bucketSize);
       const last = slice[slice.length - 1];
       buckets.push({
-        label: bucketSize === 1 ? `Age ${last.age}` : `Age ${slice[0].age}-${last.age}`,
+        label: bucketSize === 1 ? `${last.age}` : `${slice[0].age}–${last.age}`,
         contribution: slice.reduce((s, r) => s + r.contribution, 0),
         returns: slice.reduce((s, r) => s + r.returns, 0),
         closing: last.closing,
       });
     }
 
-    // Build stacked bar where each bar = previous closing (base) + contributions + returns
-    const labels = ["Start", ...buckets.map((b) => b.label)];
-
-    const baseSeries = [0]; // invisible base for waterfall offset
-    const contribSeries = [startCorpus]; // start corpus shown as initial contribution
+    const labels = ["Today", ...buckets.map((b) => `Age ${b.label}`)];
+    const baseSeries = [0];
+    const contribSeries = [startCorpus];
     const returnsSeries = [0];
 
     let runningBase = startCorpus;
@@ -157,28 +259,31 @@
         labels,
         datasets: [
           {
-            label: "Existing corpus",
+            label: "Carried-forward base",
             data: baseSeries,
-            backgroundColor: "rgba(108, 140, 255, 0.55)",
-            borderColor: "rgba(108, 140, 255, 0.9)",
-            borderWidth: 1,
+            backgroundColor: "rgba(20, 33, 61, 0.78)",
+            borderColor: "rgba(20, 33, 61, 1)",
+            borderWidth: 0,
             stack: "s",
+            borderRadius: 1,
           },
           {
-            label: "Contributions added",
+            label: "Capital committed",
             data: contribSeries,
-            backgroundColor: "rgba(139, 92, 246, 0.85)",
-            borderColor: "rgba(139, 92, 246, 1)",
-            borderWidth: 1,
+            backgroundColor: "rgba(176, 141, 87, 0.85)",
+            borderColor: "rgba(176, 141, 87, 1)",
+            borderWidth: 0,
             stack: "s",
+            borderRadius: 1,
           },
           {
             label: "Returns earned",
             data: returnsSeries,
-            backgroundColor: "rgba(52, 211, 153, 0.85)",
-            borderColor: "rgba(52, 211, 153, 1)",
-            borderWidth: 1,
+            backgroundColor: "rgba(47, 125, 91, 0.78)",
+            borderColor: "rgba(47, 125, 91, 1)",
+            borderWidth: 0,
             stack: "s",
+            borderRadius: 1,
           },
         ],
       },
@@ -188,32 +293,48 @@
         scales: {
           x: {
             stacked: true,
-            ticks: { color: "#9aa0c7" },
-            grid: { color: "rgba(255,255,255,0.04)" },
+            ticks: { color: "#6b7180", font: { family: "Inter", size: 11 } },
+            grid: { display: false },
+            border: { color: "#e8e1cf" },
           },
           y: {
             stacked: true,
-            ticks: {
-              color: "#9aa0c7",
-              callback: (v) => abbrev(v),
-            },
-            grid: { color: "rgba(255,255,255,0.06)" },
+            ticks: { color: "#6b7180", font: { family: "Inter", size: 11 }, callback: (v) => abbrev(v) },
+            grid: { color: "rgba(20,33,61,0.05)" },
+            border: { display: false },
           },
         },
         plugins: {
-          legend: { labels: { color: "#e8ebff" } },
+          legend: {
+            position: "bottom",
+            labels: {
+              color: "#1f2c4a",
+              font: { family: "Inter", size: 12 },
+              boxWidth: 10,
+              boxHeight: 10,
+              padding: 16,
+            },
+          },
           tooltip: {
+            backgroundColor: "#fff",
+            titleColor: "#14213d",
+            bodyColor: "#1f2c4a",
+            borderColor: "#e8e1cf",
+            borderWidth: 1,
+            padding: 12,
+            titleFont: { family: "Inter", weight: "600" },
+            bodyFont: { family: "Inter" },
             callbacks: {
               label: (ctx) => {
                 const ds = ctx.dataset.label;
                 const v = ctx.parsed.y;
-                if (ds === "Existing corpus" && ctx.dataIndex === 0) return null;
+                if (ds === "Carried-forward base" && ctx.dataIndex === 0) return null;
                 return `${ds}: ${fmtINR.format(v)}`;
               },
               footer: (items) => {
                 if (!items.length) return "";
                 const total = items.reduce((s, it) => s + it.parsed.y, 0);
-                return `Total at this point: ${fmtINR.format(total)}`;
+                return `Cumulative: ${fmtINR.format(total)}`;
               },
             },
           },
@@ -222,38 +343,93 @@
     });
   }
 
-  function abbrev(v) {
-    if (Math.abs(v) >= 1e7) return "₹" + (v / 1e7).toFixed(1) + "Cr";
-    if (Math.abs(v) >= 1e5) return "₹" + (v / 1e5).toFixed(1) + "L";
-    if (Math.abs(v) >= 1e3) return "₹" + (v / 1e3).toFixed(0) + "K";
-    return "₹" + v;
+  function renderLifestyle({ finalCorpus, targetSpendToday, yearsToRetire, inflation, retYears, postRate }) {
+    const el = document.getElementById("r-lifestyle");
+    if (!targetSpendToday || targetSpendToday <= 0) {
+      el.innerHTML = `<div class="lifestyle-card"><div class="lifestyle-label">Set a target spend</div><div class="lifestyle-foot">Enter a desired retirement monthly spend to see the gap analysis.</div></div>`;
+      return;
+    }
+
+    const targetSpendAtRetire = targetSpendToday * Math.pow(1 + inflation, yearsToRetire);
+    const annualSpendAtRetire = targetSpendAtRetire * 12;
+
+    // Required corpus = PV of inflation-adjusted annuity at post-retirement real return
+    const realPostRate = (1 + postRate) / (1 + inflation) - 1;
+    let required;
+    if (Math.abs(realPostRate) < 1e-8) {
+      required = annualSpendAtRetire * retYears;
+    } else {
+      required = (annualSpendAtRetire * (1 - Math.pow(1 + realPostRate, -retYears))) / realPostRate;
+    }
+
+    const surplus = finalCorpus - required;
+    const status = surplus >= 0 ? "surplus" : "deficit";
+    const statusLabel = surplus >= 0 ? "On course" : "Shortfall";
+
+    el.innerHTML = `
+      <div class="lifestyle-card">
+        <div class="lifestyle-label">Lifestyle cost at retirement</div>
+        <div class="lifestyle-value">${abbrev(targetSpendAtRetire)}/mo</div>
+        <div class="lifestyle-foot">${fmtINR.format(targetSpendToday)} today, inflated at ${(inflation * 100).toFixed(1)}% over ${yearsToRetire} yrs</div>
+      </div>
+      <div class="lifestyle-card">
+        <div class="lifestyle-label">Corpus required to fund ${retYears} years</div>
+        <div class="lifestyle-value">${abbrev(required)}</div>
+        <div class="lifestyle-foot">Real return assumed: ${(realPostRate * 100).toFixed(2)}%</div>
+      </div>
+      <div class="lifestyle-card ${status}">
+        <div class="lifestyle-label">Projected corpus</div>
+        <div class="lifestyle-value">${abbrev(finalCorpus)}</div>
+        <div class="lifestyle-foot">${fmtINR.format(finalCorpus)}</div>
+      </div>
+      <div class="lifestyle-card ${status}">
+        <div class="lifestyle-label">${statusLabel}</div>
+        <div class="lifestyle-value">${surplus >= 0 ? "+" : "−"}${abbrev(Math.abs(surplus))}</div>
+        <div class="lifestyle-foot">${
+          surplus >= 0
+            ? "Buffer over the lifestyle target."
+            : "Increase contributions, extend horizon, or moderate the target."
+        }</div>
+      </div>
+    `;
   }
 
-  document.getElementById("r-calc").addEventListener("click", calcRetirement);
-
   // ============================================================
-  // EMERGENCY CORPUS
+  // EMERGENCY
   // ============================================================
   let emergencyChart;
 
   function calcEmergency() {
+    const essTotal = ledgerSum("e-essentials");
+    const discTotal = ledgerSum("e-discretionary");
+    document.getElementById("e-essTotal").textContent = fmtINR.format(essTotal);
+    document.getElementById("e-discTotal").textContent = fmtINR.format(discTotal);
+
     const current = num("e-currentCorpus");
-    const fixed = num("e-fixed");
-    const cutdown = num("e-cutdown");
-    const aggressive = num("e-aggressive");
-    const currentSaving = num("e-currentSaving");
     const annualRate = num("e-rate") / 100;
+    const currentSaving = num("e-currentSaving");
+    const aggressiveTopup = num("e-aggressive");
+    const trimPct = num("e-trimPct") / 100;
+
+    // Style the slider track
+    const slider = document.getElementById("e-trimPct");
+    slider.style.setProperty("--val", `${trimPct * 100}%`);
+    document.getElementById("e-trimPctOut").textContent = `${Math.round(trimPct * 100)}%`;
+
+    const trimAmount = discTotal * trimPct;
+    const aggressivePace = currentSaving + trimAmount + aggressiveTopup;
 
     const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
-    const aggressivePace = currentSaving + cutdown + aggressive;
 
     document.getElementById("e-paceCurrent").textContent = fmtINR.format(currentSaving) + " / mo";
     document.getElementById("e-paceAggressive").textContent = fmtINR.format(aggressivePace) + " / mo";
+    document.getElementById("e-paceBreakdown").textContent =
+      `Base ${fmtINR.format(currentSaving)} + trim ${fmtINR.format(trimAmount)} + top-up ${fmtINR.format(aggressiveTopup)}`;
 
     const goals = [
-      { months: 3, label: "3 months — short cushion" },
-      { months: 6, label: "6 months — standard buffer" },
-      { months: 9, label: "9 months — unstable-job armor" },
+      { months: 3, label: "Three-month cushion", sub: "Short shock — medical, transition" },
+      { months: 6, label: "Six-month buffer", sub: "Standard private-banking floor" },
+      { months: 9, label: "Nine-month armour", sub: "For volatile sectors and long sabbaticals" },
     ];
 
     const goalsEl = document.getElementById("e-goals");
@@ -264,42 +440,35 @@
     const tableRows = [];
 
     goals.forEach((g) => {
-      const target = g.months * fixed;
+      const target = g.months * essTotal;
       const gap = Math.max(0, target - current);
       const progress = target === 0 ? 100 : Math.min(100, (current / target) * 100);
-      const met = current >= target;
+      const met = current >= target && target > 0;
 
       const tCurrent = monthsToReach(current, target, currentSaving, monthlyRate);
       const tAggro = monthsToReach(current, target, aggressivePace, monthlyRate);
 
-      // Goal card
-      const goalDiv = document.createElement("div");
-      goalDiv.className = "goal";
-      goalDiv.innerHTML = `
+      const div = document.createElement("div");
+      div.className = "goal";
+      div.innerHTML = `
         <div class="goal-head">
           <div>
             <div class="goal-title">${g.label}</div>
-            <div class="goal-amount">Target ${fmtINR.format(target)} • You have ${fmtINR.format(current)}</div>
+            <div class="goal-amount">${g.sub} • Target ${fmtINR.format(target)}</div>
           </div>
           <span class="badge ${met ? "met" : progress >= 50 ? "partial" : "unmet"}">
-            ${met ? "Goal met" : progress.toFixed(0) + "%"}
+            ${met ? "Achieved" : progress.toFixed(0) + "%"}
           </span>
         </div>
         <div class="progress"><div class="progress-fill ${met ? "met" : ""}" style="width:${progress}%"></div></div>
         <div class="goal-meta">
-          <span>Gap: ${fmtINR.format(gap)}</span>
-          <span>${met ? "Done — keep parked in liquid fund" : `~${fmtMonths(tAggro)} aggressive / ${fmtMonths(tCurrent)} current`}</span>
+          <span>${met ? "Cushion in place" : "Gap " + fmtINR.format(gap)}</span>
+          <span>${met ? "—" : `${fmtMonths(tAggro)} accelerated · ${fmtMonths(tCurrent)} current`}</span>
         </div>
       `;
-      goalsEl.appendChild(goalDiv);
+      goalsEl.appendChild(div);
 
-      tableRows.push({
-        label: `${g.months} mo`,
-        target,
-        gap,
-        tCurrent,
-        tAggro,
-      });
+      tableRows.push({ label: `${g.months} months`, target, gap, tCurrent, tAggro });
     });
 
     tbody.innerHTML = tableRows
@@ -315,11 +484,12 @@
       )
       .join("");
 
-    renderEmergencyChart(current, fixed, currentSaving, aggressivePace, monthlyRate);
-    renderTips({ current, fixed, cutdown, aggressive, currentSaving, aggressivePace, goals });
+    renderEmergencyChart(current, essTotal, currentSaving, aggressivePace, monthlyRate);
+    renderTips({ current, essTotal, discTotal, trimAmount, aggressiveTopup, currentSaving, aggressivePace });
   }
 
   function monthsToReach(start, target, monthlyContrib, monthlyRate) {
+    if (target <= 0) return 0;
     if (start >= target) return 0;
     if (monthlyContrib <= 0 && monthlyRate <= 0) return Infinity;
 
@@ -333,7 +503,7 @@
   }
 
   function fmtMonths(m) {
-    if (!isFinite(m)) return "Never at this pace";
+    if (!isFinite(m)) return "Not at this pace";
     if (m === 0) return "Reached";
     if (m < 12) return `${m} mo`;
     const years = Math.floor(m / 12);
@@ -341,8 +511,8 @@
     return rem === 0 ? `${years} yr` : `${years} yr ${rem} mo`;
   }
 
-  function renderEmergencyChart(start, fixed, paceCurrent, paceAggressive, monthlyRate) {
-    const horizon = 36; // 3 years projection
+  function renderEmergencyChart(start, essTotal, paceCurrent, paceAggressive, monthlyRate) {
+    const horizon = 36;
     const labels = Array.from({ length: horizon + 1 }, (_, i) => `M${i}`);
 
     const proj = (pace) => {
@@ -369,46 +539,46 @@
           {
             label: "Current pace",
             data: dataCurrent,
-            borderColor: "rgba(108, 140, 255, 1)",
-            backgroundColor: "rgba(108, 140, 255, 0.15)",
+            borderColor: "rgba(20, 33, 61, 0.85)",
+            backgroundColor: "rgba(20, 33, 61, 0.05)",
             tension: 0.25,
             fill: true,
             pointRadius: 0,
             borderWidth: 2,
           },
           {
-            label: "Aggressive pace",
+            label: "Accelerated pace",
             data: dataAggressive,
-            borderColor: "rgba(52, 211, 153, 1)",
-            backgroundColor: "rgba(52, 211, 153, 0.15)",
+            borderColor: "rgba(176, 141, 87, 1)",
+            backgroundColor: "rgba(176, 141, 87, 0.10)",
             tension: 0.25,
             fill: true,
             pointRadius: 0,
             borderWidth: 2,
           },
           {
-            label: "3-month goal",
-            data: Array(horizon + 1).fill(3 * fixed),
-            borderColor: "rgba(251, 191, 36, 0.7)",
-            borderDash: [6, 4],
+            label: "3-month",
+            data: Array(horizon + 1).fill(3 * essTotal),
+            borderColor: "rgba(47, 125, 91, 0.6)",
+            borderDash: [5, 4],
             pointRadius: 0,
             borderWidth: 1.5,
             fill: false,
           },
           {
-            label: "6-month goal",
-            data: Array(horizon + 1).fill(6 * fixed),
-            borderColor: "rgba(244, 114, 182, 0.7)",
-            borderDash: [6, 4],
+            label: "6-month",
+            data: Array(horizon + 1).fill(6 * essTotal),
+            borderColor: "rgba(161, 111, 29, 0.6)",
+            borderDash: [5, 4],
             pointRadius: 0,
             borderWidth: 1.5,
             fill: false,
           },
           {
-            label: "9-month goal",
-            data: Array(horizon + 1).fill(9 * fixed),
-            borderColor: "rgba(248, 113, 113, 0.7)",
-            borderDash: [6, 4],
+            label: "9-month",
+            data: Array(horizon + 1).fill(9 * essTotal),
+            borderColor: "rgba(162, 48, 48, 0.6)",
+            borderDash: [5, 4],
             pointRadius: 0,
             borderWidth: 1.5,
             fill: false,
@@ -420,15 +590,29 @@
         maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         scales: {
-          x: { ticks: { color: "#9aa0c7", maxTicksLimit: 12 }, grid: { color: "rgba(255,255,255,0.04)" } },
+          x: {
+            ticks: { color: "#6b7180", font: { family: "Inter", size: 11 }, maxTicksLimit: 13 },
+            grid: { display: false },
+            border: { color: "#e8e1cf" },
+          },
           y: {
-            ticks: { color: "#9aa0c7", callback: (v) => abbrev(v) },
-            grid: { color: "rgba(255,255,255,0.06)" },
+            ticks: { color: "#6b7180", font: { family: "Inter", size: 11 }, callback: (v) => abbrev(v) },
+            grid: { color: "rgba(20,33,61,0.05)" },
+            border: { display: false },
           },
         },
         plugins: {
-          legend: { labels: { color: "#e8ebff" } },
+          legend: {
+            position: "bottom",
+            labels: { color: "#1f2c4a", font: { family: "Inter", size: 12 }, boxWidth: 10, boxHeight: 10, padding: 14 },
+          },
           tooltip: {
+            backgroundColor: "#fff",
+            titleColor: "#14213d",
+            bodyColor: "#1f2c4a",
+            borderColor: "#e8e1cf",
+            borderWidth: 1,
+            padding: 12,
             callbacks: { label: (c) => `${c.dataset.label}: ${fmtINR.format(c.parsed.y)}` },
           },
         },
@@ -436,52 +620,66 @@
     });
   }
 
-  function renderTips({ current, fixed, cutdown, aggressive, currentSaving, aggressivePace, goals }) {
+  function renderTips({ current, essTotal, discTotal, trimAmount, aggressiveTopup, currentSaving, aggressivePace }) {
     const ul = document.getElementById("e-tips");
     const tips = [];
 
-    const target3 = 3 * fixed;
-    const target6 = 6 * fixed;
-    const target9 = 9 * fixed;
+    const t3 = 3 * essTotal;
+    const t6 = 6 * essTotal;
+    const t9 = 9 * essTotal;
 
-    if (current < target3) {
-      tips.push(`Hit the 3-month line first — you need <strong>${fmtINR.format(target3 - current)}</strong> more. Park it in a liquid mutual fund or sweep-in FD.`);
-    } else if (current < target6) {
-      tips.push(`You've cleared 3 months. Next milestone: <strong>${fmtINR.format(target6 - current)}</strong> away from the 6-month buffer.`);
-    } else if (current < target9) {
-      tips.push(`Strong base. The 9-month buffer is <strong>${fmtINR.format(target9 - current)}</strong> away — useful if your industry is volatile.`);
+    if (essTotal === 0) {
+      tips.push(`Walk through the essentials ledger to anchor the target. Without it, the milestones can't be sized.`);
+    } else if (current < t3) {
+      tips.push(`Priority is the three-month cushion — a gap of <strong>${fmtINR.format(t3 - current)}</strong>. Park it in a liquid mutual fund or a sweep-in fixed deposit for instant access.`);
+    } else if (current < t6) {
+      tips.push(`The three-month cushion is in place. Next milestone — six months — is <strong>${fmtINR.format(t6 - current)}</strong> away.`);
+    } else if (current < t9) {
+      tips.push(`A solid six-month buffer is set. The nine-month armour is <strong>${fmtINR.format(t9 - current)}</strong> away — useful for volatile sectors or planned sabbaticals.`);
     } else {
-      tips.push(`9-month corpus achieved. Keep it parked, and route excess savings to long-term investing for retirement.`);
+      tips.push(`Nine-month corpus achieved. Maintain it in low-volatility instruments and channel further savings to long-horizon equity for retirement.`);
     }
 
-    if (cutdown > 0) {
-      const pct = ((cutdown / fixed) * 100).toFixed(0);
-      tips.push(`Cutting <strong>${fmtINR.format(cutdown)}/mo</strong> from discretionary spend (~${pct}% of fixed expenses) accelerates every goal.`);
+    if (discTotal > 0 && essTotal > 0) {
+      const ratio = ((discTotal / (essTotal + discTotal)) * 100).toFixed(0);
+      tips.push(`Discretionary spend is roughly <strong>${ratio}%</strong> of total monthly outflow — a meaningful lever.`);
     }
 
-    if (aggressive > 0) {
-      tips.push(`Aggressive top-up of <strong>${fmtINR.format(aggressive)}/mo</strong> on top of cuts boosts your monthly fund flow to <strong>${fmtINR.format(aggressivePace)}</strong>.`);
+    if (trimAmount > 0) {
+      tips.push(`Redirecting <strong>${fmtINR.format(trimAmount)}/month</strong> from discretionary into this fund shortens every milestone.`);
+    }
+
+    if (aggressiveTopup > 0) {
+      tips.push(`The additional <strong>${fmtINR.format(aggressiveTopup)}/month</strong> top-up takes the accelerated pace to <strong>${fmtINR.format(aggressivePace)}/month</strong>.`);
     }
 
     if (currentSaving === 0 && aggressivePace === 0) {
-      tips.push(`No monthly savings flowing in. Even ₹2,000–₹5,000/month auto-debited on payday compounds quickly.`);
+      tips.push(`No monthly flow is being allocated — automating even a modest standing instruction on payday will compound quickly.`);
     }
 
-    tips.push(`Keep this corpus boring: liquid mutual fund, high-yield savings, or sweep-in FD. Equity is for retirement, not for emergencies.`);
-
-    if (fixed > 0 && currentSaving > 0) {
-      const savingsRate = ((currentSaving / (fixed + currentSaving)) * 100).toFixed(0);
-      tips.push(`Your current savings rate (toward this fund) is roughly <strong>${savingsRate}%</strong> of fixed-expenses-equivalent income.`);
-    }
+    tips.push(`Keep this corpus deliberately conservative — liquid funds, sweep-in FDs, or a high-yield savings account. Equity belongs in the long-horizon portfolio.`);
 
     ul.innerHTML = tips.map((t) => `<li>${t}</li>`).join("");
   }
 
-  document.getElementById("e-calc").addEventListener("click", calcEmergency);
+  // ============================================================
+  // Live recalc
+  // ============================================================
+  const debounce = (fn, ms = 150) => {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  };
 
-  // ============================================================
-  // Run once on load with defaults
-  // ============================================================
+  const recalcRet = debounce(calcRetirement, 120);
+  const recalcEm = debounce(calcEmergency, 120);
+
+  document.querySelector("#retirement").addEventListener("input", recalcRet);
+  document.querySelector("#emergency").addEventListener("input", recalcEm);
+
+  // Initial render
   calcRetirement();
   calcEmergency();
 })();
