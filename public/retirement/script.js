@@ -828,10 +828,9 @@
     const aggressiveTopup = num("e-aggressive");
     const trimPct = num("e-trimPct") / 100;
 
-    // Style the slider track
+    // Slider track fill
     const slider = document.getElementById("e-trimPct");
     slider.style.setProperty("--val", `${trimPct * 100}%`);
-    document.getElementById("e-trimPctOut").textContent = `${Math.round(trimPct * 100)}%`;
 
     const trimAmount = discTotal * trimPct;
     const aggressivePace = currentSaving + trimAmount + aggressiveTopup;
@@ -842,6 +841,19 @@
     document.getElementById("e-paceAggressive").textContent = fmtINR.format(aggressivePace) + " / mo";
     document.getElementById("e-paceBreakdown").textContent =
       `Base ${fmtINR.format(currentSaving)} + trim ${fmtINR.format(trimAmount)} + top-up ${fmtINR.format(aggressiveTopup)}`;
+
+    // Slider hint (percentage + rupee equivalent)
+    document.getElementById("e-trimPctOut").textContent =
+      `${Math.round(trimPct * 100)}% · ${fmtINR.format(trimAmount)}/mo`;
+    document.getElementById("e-trimAmountHint").textContent = discTotal > 0
+      ? `${Math.round(trimPct * 100)}% of ${fmtINR.format(discTotal)} discretionary = ${fmtINR.format(trimAmount)} redirected each month.`
+      : `Add discretionary line items above to size the trim amount.`;
+
+    // Running total breakdown
+    document.getElementById("e-accelBase").textContent = fmtINR.format(currentSaving);
+    document.getElementById("e-accelTrim").textContent = fmtINR.format(trimAmount);
+    document.getElementById("e-accelTop").textContent = fmtINR.format(aggressiveTopup);
+    document.getElementById("e-accelTotal").textContent = fmtINR.format(aggressivePace) + " / mo";
 
     const goals = [
       { months: 3, label: "Three-month cushion", sub: "Absorbs a short shock — medical event, role transition" },

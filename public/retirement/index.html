@@ -377,6 +377,7 @@
                   <input type="range" id="e-trimPct" min="0" max="100" step="5" value="40" />
                   <output id="e-trimPctOut">40%</output>
                 </div>
+                <span class="field-hint" id="e-trimAmountHint">—</span>
               </label>
 
               <label>
@@ -386,6 +387,25 @@
                   <input type="number" id="e-aggressive" value="10000" min="0" step="1000" />
                 </div>
               </label>
+
+              <div class="acceleration-summary" id="e-accelSummary">
+                <div class="accel-row">
+                  <span class="accel-label">Current monthly saving</span>
+                  <span class="accel-value" id="e-accelBase">—</span>
+                </div>
+                <div class="accel-row">
+                  <span class="accel-label"><span class="accel-op">+</span> Trim from discretionary</span>
+                  <span class="accel-value" id="e-accelTrim">—</span>
+                </div>
+                <div class="accel-row">
+                  <span class="accel-label"><span class="accel-op">+</span> Aggressive top-up</span>
+                  <span class="accel-value" id="e-accelTop">—</span>
+                </div>
+                <div class="accel-row accel-total">
+                  <span class="accel-label">Accelerated pace</span>
+                  <span class="accel-value" id="e-accelTotal">—</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
