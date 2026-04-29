@@ -622,6 +622,66 @@ output {
   border-bottom-color: var(--gold);
 }
 
+.acceleration-summary {
+  margin-top: 22px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.accel-row .accel-op {
+  display: inline-block;
+  width: 14px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.accel-value {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.accel-total {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--navy);
+  font-size: 14px;
+}
+
+.accel-total .accel-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.accel-total .accel-value {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+output#e-trimPctOut {
+  min-width: 130px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============ KPI ============ */
 .kpis {
   display: grid;
