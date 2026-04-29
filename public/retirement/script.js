@@ -137,9 +137,17 @@
 
   function abbrev(v) {
     if (v == null || !isFinite(v)) return "—";
-    if (Math.abs(v) >= 1e7) return "₹" + (v / 1e7).toFixed(1) + " Cr";
+    if (Math.abs(v) >= 1e7) return "₹" + (v / 1e7).toFixed(2) + " Cr";
     if (Math.abs(v) >= 1e5) return "₹" + (v / 1e5).toFixed(1) + " L";
     if (Math.abs(v) >= 1e3) return "₹" + (v / 1e3).toFixed(0) + " K";
+    return "₹" + Math.round(v);
+  }
+
+  function abbrevShort(v) {
+    if (v == null || !isFinite(v)) return "—";
+    if (Math.abs(v) >= 1e7) return "₹" + (v / 1e7).toFixed(1) + "Cr";
+    if (Math.abs(v) >= 1e5) return "₹" + (v / 1e5).toFixed(1) + "L";
+    if (Math.abs(v) >= 1e3) return "₹" + (v / 1e3).toFixed(0) + "K";
     return "₹" + Math.round(v);
   }
 
@@ -169,7 +177,45 @@
   // ============================================================
   // RETIREMENT
   // ============================================================
-  let waterfall;
+  let waterfall, depletionChart, allocationDonut, expenseDonut;
+  let userTouchedTarget = false;
+
+  function simulateAccumulation(start, monthly, annualRate, years, stepup) {
+    const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+    let corpus = start;
+    let totalInvested = start;
+    let totalReturns = 0;
+    let m = monthly;
+    const rows = [];
+
+    for (let y = 1; y <= years; y++) {
+      const opening = corpus;
+      let yearContribution = 0;
+      let yearReturn = 0;
+
+      for (let i = 0; i < 12; i++) {
+        const interest = corpus * monthlyRate;
+        corpus += interest + m;
+        yearReturn += interest;
+        yearContribution += m;
+      }
+
+      totalInvested += yearContribution;
+      totalReturns += yearReturn;
+
+      rows.push({
+        year: y,
+        opening,
+        contribution: yearContribution,
+        returns: yearReturn,
+        closing: corpus,
+      });
+
+      m = m * (1 + stepup);
+    }
+
+    return { finalCorpus: corpus, totalInvested, totalReturns, rows, finalMonthlySIP: m / (1 + stepup) };
+  }
 
   function calcRetirement() {
     const monthly = ledgerSum("r-instruments");
@@ -182,7 +228,6 @@
     const inflation = num("r-inflation") / 100;
     const stepup = num("r-stepup") / 100;
 
-    const targetSpendToday = num("r-targetSpend");
     const retYears = num("r-retYears");
     const postRate = num("r-postRate") / 100;
 
@@ -193,69 +238,53 @@
     const expenseAtRetire = ledgerSumActiveAtYear("r-expenses", retirementYear);
     document.getElementById("r-expenseTotal").textContent = fmtINR.format(expenseTotal);
     document.getElementById("r-expenseAtRetire").textContent = fmtINR.format(expenseAtRetire);
-    // expose for the sync button
     window.__projectedAtRetire = expenseAtRetire;
-    const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
 
-    const rows = [];
-    let corpus = startCorpus;
-    let totalInvested = startCorpus;
-    let totalReturns = 0;
-    let monthlyContrib = monthly;
-
-    for (let y = 1; y <= years; y++) {
-      const opening = corpus;
-      let yearContribution = 0;
-      let yearReturn = 0;
-
-      for (let m = 0; m < 12; m++) {
-        const interest = corpus * monthlyRate;
-        corpus += interest + monthlyContrib;
-        yearReturn += interest;
-        yearContribution += monthlyContrib;
-      }
-
-      totalInvested += yearContribution;
-      totalReturns += yearReturn;
-
-      const ageAtClose = currentAge + y;
-      const realClosing = corpus / Math.pow(1 + inflation, y);
-
-      rows.push({
-        year: y,
-        age: ageAtClose,
-        opening,
-        contribution: yearContribution,
-        returns: yearReturn,
-        closing: corpus,
-        realClosing,
-      });
-
-      monthlyContrib = monthlyContrib * (1 + stepup);
+    // Auto-sync target spend the first time / whenever the user hasn't manually overridden
+    const targetEl = document.getElementById("r-targetSpend");
+    if (!userTouchedTarget && expenseAtRetire > 0) {
+      targetEl.value = Math.round(expenseAtRetire);
     }
+    const targetSpendToday = num("r-targetSpend");
 
-    const finalCorpus = corpus;
+    // Main projection
+    const main = simulateAccumulation(startCorpus, monthly, annualRate, years, stepup);
+    const finalCorpus = main.finalCorpus;
+
+    // Enrich rows with age + real value
+    const rows = main.rows.map((r, i) => ({
+      ...r,
+      age: currentAge + r.year,
+      realClosing: r.closing / Math.pow(1 + inflation, r.year),
+    }));
+
     const realFinal = years > 0 ? finalCorpus / Math.pow(1 + inflation, years) : finalCorpus;
     const realRate = (1 + annualRate) / (1 + inflation) - 1;
 
     document.getElementById("r-finalNominal").textContent = abbrev(finalCorpus);
-    document.getElementById("r-finalNominalSub").textContent = "= " + fmtINR.format(finalCorpus);
+    document.getElementById("r-finalNominalSub").textContent = fmtINR.format(finalCorpus);
     document.getElementById("r-finalReal").textContent = abbrev(realFinal);
-    document.getElementById("r-totalInvested").textContent = abbrev(totalInvested);
-    document.getElementById("r-totalReturns").textContent = abbrev(totalReturns);
+    document.getElementById("r-totalInvested").textContent = abbrev(main.totalInvested);
+    document.getElementById("r-totalReturns").textContent = abbrev(main.totalReturns);
     document.getElementById("r-realRate").textContent = (realRate * 100).toFixed(2) + "%";
     document.getElementById("r-years").textContent = years;
 
+    // Personalised headline
+    const clientName = (document.getElementById("clientName").value || "").trim();
+    document.getElementById("r-headlineTitle").textContent =
+      clientName ? `${clientName.split(" ")[0]}'s number` : "Your number";
+
     renderRetirementTable(rows);
     renderWaterfall(startCorpus, rows);
-    renderLifestyle({
-      finalCorpus,
-      targetSpendToday,
-      yearsToRetire: years,
-      inflation,
-      retYears,
-      postRate,
-    });
+    renderLifestyle({ finalCorpus, targetSpendToday, yearsToRetire: years, inflation, retYears, postRate });
+    renderCostOfWaiting({ startCorpus, monthly, annualRate, years, stepup, finalCorpus });
+    renderMilestones({ rows, currentAge });
+    renderDepletion({ finalCorpus, targetSpendToday, yearsToRetire: years, inflation, retYears, postRate, currentAge });
+    renderAllocationDonut();
+    renderExpenseDonut(retirementYear);
+
+    // Update active scenario snapshot if any
+    captureScenarioIfActive({ finalCorpus, realFinal, targetSpendToday, years });
   }
 
   function renderRetirementTable(rows) {
@@ -445,6 +474,341 @@
         }</div>
       </div>
     `;
+  }
+
+  // ============================================================
+  // COST OF WAITING
+  // ============================================================
+  function renderCostOfWaiting({ startCorpus, monthly, annualRate, years, stepup, finalCorpus }) {
+    const wrap = document.getElementById("r-costOfWaiting");
+    if (!wrap) return;
+    const valueEl = wrap.querySelector(".cow-value");
+    const footEl = wrap.querySelector(".cow-foot");
+
+    if (years <= 5 || monthly === 0) {
+      valueEl.textContent = "—";
+      footEl.textContent = "Enter your monthly investment to see this estimate.";
+      return;
+    }
+
+    // Project as if started 5 years later — same total horizon, fewer accumulating years
+    // Starting corpus continues to compound over 5 idle years too (no contributions)
+    const idleYears = 5;
+    const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+    let idleCorpus = startCorpus;
+    for (let i = 0; i < idleYears * 12; i++) idleCorpus *= 1 + monthlyRate;
+
+    const delayed = simulateAccumulation(idleCorpus, monthly, annualRate, years - idleYears, stepup);
+    const lostCorpus = finalCorpus - delayed.finalCorpus;
+    const lostPct = finalCorpus > 0 ? (lostCorpus / finalCorpus) * 100 : 0;
+
+    valueEl.textContent = "−" + abbrev(lostCorpus);
+    footEl.textContent = `Starting five years from now leaves ${lostPct.toFixed(0)}% of the corpus on the table — about ${abbrev(delayed.finalCorpus)} versus ${abbrev(finalCorpus)}.`;
+  }
+
+  // ============================================================
+  // MILESTONES TIMELINE
+  // ============================================================
+  function renderMilestones({ rows, currentAge }) {
+    const el = document.getElementById("r-timeline");
+    if (!el || !rows.length) return;
+
+    const maxCorpus = rows[rows.length - 1].closing;
+    const candidateMarks = [1e7, 2e7, 5e7, 1e8, 2e8, 5e8, 1e9, 2e9];
+    const marks = candidateMarks.filter((v) => v <= maxCorpus);
+
+    if (!marks.length) {
+      el.innerHTML = `<div class="timeline-empty">The first crore lies beyond this projection horizon.</div>`;
+      return;
+    }
+
+    const milestones = marks.map((val) => {
+      const row = rows.find((r) => r.closing >= val);
+      return { value: val, age: row.age, year: CURRENT_YEAR + row.year };
+    });
+
+    const startAge = currentAge;
+    const endAge = rows[rows.length - 1].age;
+    const span = endAge - startAge;
+
+    const markersHTML = milestones
+      .map((m) => {
+        const pct = span > 0 ? ((m.age - startAge) / span) * 100 : 50;
+        const isMajor = m.value === 1e7 || m.value === 1e8;
+        return `
+          <div class="timeline-marker" style="left:${pct}%">
+            <span class="timeline-label-above">${abbrevShort(m.value)}</span>
+            <span class="timeline-dot ${isMajor ? "milestone-major" : ""}"></span>
+            <span class="timeline-label-below"><span class="age">Age ${m.age}</span> · ${m.year}</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    el.innerHTML = `
+      <div class="timeline-rail">${markersHTML}</div>
+    `;
+  }
+
+  // ============================================================
+  // DEPLETION SIM (post-retirement drawdown)
+  // ============================================================
+  function simulateDepletion({ corpus, annualSpendAtRetire, postRate, inflation, retYears }) {
+    const out = [{ year: 0, balance: corpus }];
+    let bal = corpus;
+    let spend = annualSpendAtRetire;
+    let runsOutAtYear = null;
+
+    for (let y = 1; y <= retYears; y++) {
+      bal = bal * (1 + postRate) - spend;
+      if (bal < 0 && runsOutAtYear === null) {
+        runsOutAtYear = y;
+        bal = 0;
+      }
+      out.push({ year: y, balance: Math.max(0, bal) });
+      spend *= 1 + inflation;
+    }
+
+    return { points: out, runsOutAtYear };
+  }
+
+  function renderDepletion({ finalCorpus, targetSpendToday, yearsToRetire, inflation, retYears, postRate, currentAge }) {
+    const note = document.getElementById("r-depletionNote");
+    if (!targetSpendToday || finalCorpus <= 0) {
+      if (depletionChart) { depletionChart.destroy(); depletionChart = null; }
+      const ctx = document.getElementById("depletionChart").getContext("2d");
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      note.textContent = "Set a target spend to see the drawdown.";
+      note.className = "depletion-note";
+      return;
+    }
+
+    const annualSpend = targetSpendToday * Math.pow(1 + inflation, yearsToRetire) * 12;
+    const sim = simulateDepletion({ corpus: finalCorpus, annualSpendAtRetire: annualSpend, postRate, inflation, retYears });
+
+    const retireAge = currentAge + yearsToRetire;
+    const labels = sim.points.map((p) => `Age ${retireAge + p.year}`);
+    const data = sim.points.map((p) => p.balance);
+
+    if (depletionChart) depletionChart.destroy();
+
+    const ctx = document.getElementById("depletionChart").getContext("2d");
+    depletionChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Corpus balance",
+          data,
+          borderColor: "rgba(20, 33, 61, 0.9)",
+          backgroundColor: (ctx) => {
+            const chart = ctx.chart;
+            const { ctx: c, chartArea } = chart;
+            if (!chartArea) return "rgba(176, 141, 87, 0.15)";
+            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            g.addColorStop(0, "rgba(176, 141, 87, 0.30)");
+            g.addColorStop(1, "rgba(176, 141, 87, 0.02)");
+            return g;
+          },
+          tension: 0.3,
+          fill: true,
+          pointRadius: 0,
+          borderWidth: 2.5,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { color: "#6b7180", font: { family: "Inter", size: 11 }, maxTicksLimit: 8 }, grid: { display: false }, border: { color: "#e8e1cf" } },
+          y: { ticks: { color: "#6b7180", font: { family: "Inter", size: 11 }, callback: (v) => abbrev(v) }, grid: { color: "rgba(20,33,61,0.05)" }, border: { display: false } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#fff",
+            titleColor: "#14213d",
+            bodyColor: "#1f2c4a",
+            borderColor: "#e8e1cf",
+            borderWidth: 1,
+            padding: 12,
+            callbacks: { label: (c) => "Balance: " + fmtINR.format(c.parsed.y) },
+          },
+        },
+      },
+    });
+
+    if (sim.runsOutAtYear !== null) {
+      const ageOut = retireAge + sim.runsOutAtYear;
+      note.textContent = `At this lifestyle and these returns, the corpus runs out at age ${ageOut}. Plan to extend the horizon, raise contributions, or moderate the target.`;
+      note.className = "depletion-note deficit";
+    } else {
+      const remaining = sim.points[sim.points.length - 1].balance;
+      note.textContent = `At age ${retireAge + retYears}, the corpus still holds ${abbrev(remaining)} — comfortably ahead of the lifestyle target.`;
+      note.className = "depletion-note surplus";
+    }
+  }
+
+  // ============================================================
+  // DONUTS
+  // ============================================================
+  const DONUT_PALETTE = [
+    "#14213d", "#b08d57", "#2f7d5b", "#5a6584", "#d6b884",
+    "#7c5d3a", "#3d537a", "#a16f1d", "#1f2c4a", "#98a0b0",
+    "#4ea37a",
+  ];
+
+  function buildDonut(canvasId, legendId, items) {
+    const total = items.reduce((s, i) => s + i.value, 0);
+    const filtered = items.filter((i) => i.value > 0);
+
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext("2d");
+
+    if (!filtered.length || total === 0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      document.getElementById(legendId).innerHTML = `<div class="muted small" style="text-align:center; padding: 12px 0;">No data yet.</div>`;
+      return null;
+    }
+
+    const data = {
+      labels: filtered.map((i) => i.label),
+      datasets: [{
+        data: filtered.map((i) => i.value),
+        backgroundColor: filtered.map((_, idx) => DONUT_PALETTE[idx % DONUT_PALETTE.length]),
+        borderColor: "#fdfaf3",
+        borderWidth: 2,
+        hoverOffset: 6,
+      }],
+    };
+
+    const chart = new Chart(ctx, {
+      type: "doughnut",
+      data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#fff",
+            titleColor: "#14213d",
+            bodyColor: "#1f2c4a",
+            borderColor: "#e8e1cf",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              label: (c) => {
+                const v = c.parsed;
+                const pct = ((v / total) * 100).toFixed(1);
+                return `${c.label}: ${fmtINR.format(v)} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    document.getElementById(legendId).innerHTML = filtered
+      .map((it, idx) => {
+        const pct = ((it.value / total) * 100).toFixed(1);
+        const color = DONUT_PALETTE[idx % DONUT_PALETTE.length];
+        return `
+          <div class="donut-legend-row">
+            <span class="donut-legend-swatch" style="background:${color}"></span>
+            <span class="donut-legend-label">${it.label}</span>
+            <span class="donut-legend-amount">${abbrevShort(it.value)}</span>
+            <span class="donut-legend-pct">${pct}%</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    return chart;
+  }
+
+  function renderAllocationDonut() {
+    if (allocationDonut) allocationDonut.destroy();
+    const items = RETIREMENT_INSTRUMENTS.map((it) => {
+      const inp = document.querySelector(`#r-instruments input[data-key="${it.id}"]`);
+      const v = parseFloat(inp && inp.value);
+      return { label: it.label.replace(/\s*\(.*?\)\s*/g, "").trim(), value: isFinite(v) ? v : 0 };
+    });
+    allocationDonut = buildDonut("allocationDonut", "allocationLegend", items);
+  }
+
+  function renderExpenseDonut(retirementYear) {
+    if (expenseDonut) expenseDonut.destroy();
+    const items = RETIREMENT_EXPENSES.map((it) => {
+      const inp = document.querySelector(`#r-expenses input[data-key="${it.id}"]`);
+      const v = parseFloat(inp && inp.value);
+      return { label: it.label.split(" — ")[0].split(",")[0].trim(), value: isFinite(v) ? v : 0 };
+    });
+    expenseDonut = buildDonut("expenseDonut", "expenseLegend", items);
+  }
+
+  // ============================================================
+  // SCENARIO COMPARE
+  // ============================================================
+  const scenarios = { A: null, B: null };
+  let activePlan = null;
+
+  function captureScenarioIfActive(snapshot) {
+    if (!activePlan) return;
+    scenarios[activePlan] = { ...scenarios[activePlan], ...snapshot, savedAt: Date.now() };
+    renderComparePanel();
+  }
+
+  function saveScenario(slot) {
+    activePlan = slot;
+    scenarios[slot] = {}; // mark as active; will be filled by next calc
+    calcRetirement(); // triggers captureScenarioIfActive
+    activePlan = null;
+    document.querySelector(`.scenario-btn[data-save="${slot}"]`).classList.add("has-data");
+    renderComparePanel();
+  }
+
+  function clearScenarios() {
+    scenarios.A = null;
+    scenarios.B = null;
+    document.querySelectorAll(".scenario-btn[data-save]").forEach((b) => b.classList.remove("has-data"));
+    renderComparePanel();
+  }
+
+  function renderComparePanel() {
+    const panel = document.getElementById("comparePanel");
+    const a = scenarios.A;
+    const b = scenarios.B;
+
+    if (!a && !b) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    const setCell = (slot, plan) => {
+      const valEl = document.querySelector(`[data-plan-value="${slot}"]`);
+      const footEl = document.querySelector(`[data-plan-foot="${slot}"]`);
+      if (!plan) {
+        valEl.textContent = "—";
+        footEl.textContent = "Not yet saved.";
+      } else {
+        valEl.textContent = abbrev(plan.finalCorpus);
+        footEl.textContent = `${abbrev(plan.realFinal)} in today's ₹ • ${plan.years} yrs`;
+      }
+    };
+    setCell("A", a);
+    setCell("B", b);
+
+    const deltaEl = document.getElementById("compareDelta");
+    const deltaFootEl = document.getElementById("compareDeltaFoot");
+    if (a && b) {
+      const diff = b.finalCorpus - a.finalCorpus;
+      deltaEl.textContent = (diff >= 0 ? "+" : "−") + abbrev(Math.abs(diff));
+      const pct = a.finalCorpus > 0 ? ((diff / a.finalCorpus) * 100).toFixed(1) : "—";
+      deltaFootEl.textContent = `B vs A: ${pct}%`;
+    } else {
+      deltaEl.textContent = "—";
+      deltaFootEl.textContent = "Save both plans to compare.";
+    }
   }
 
   // ============================================================
@@ -732,19 +1096,58 @@
   document.querySelector("#retirement").addEventListener("input", recalcRet);
   document.querySelector("#emergency").addEventListener("input", recalcEm);
 
-  // Sync target spend with projected at-retirement outflow
+  // Track when the user manually edits the lifestyle target so we stop auto-syncing
+  const targetEl = document.getElementById("r-targetSpend");
+  targetEl.addEventListener("input", () => { userTouchedTarget = true; });
+
+  // "Use the projected at-retirement outflow" link
   const syncBtn = document.getElementById("r-syncTarget");
   if (syncBtn) {
     syncBtn.addEventListener("click", () => {
-      const v = window.__projectedAtRetire;
-      if (isFinite(v) && v > 0) {
-        document.getElementById("r-targetSpend").value = Math.round(v);
-        calcRetirement();
-      }
+      userTouchedTarget = false; // re-engage auto-sync
+      calcRetirement();
     });
   }
 
+  // ============================================================
+  // Personalisation, date, print, scenarios
+  // ============================================================
+  function fmtDate(d) {
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  }
+  document.getElementById("dateStamp").textContent = fmtDate(new Date());
+
+  const clientEl = document.getElementById("clientName");
+  const advisorEl = document.getElementById("advisorName");
+
+  function syncTitle() {
+    const c = (clientEl.value || "").trim();
+    const a = (advisorEl.value || "").trim();
+    const parts = ["Wealth Planner"];
+    if (c) parts.push(c);
+    parts.push(fmtDate(new Date()));
+    document.title = parts.join(" — ");
+    if (a) {
+      // mirror to a hidden meta? skip — just keep value present for print
+    }
+    // Refresh the personalised headline
+    document.getElementById("r-headlineTitle").textContent =
+      c ? `${c.split(" ")[0]}'s number` : "Your number";
+  }
+  clientEl.addEventListener("input", syncTitle);
+  advisorEl.addEventListener("input", syncTitle);
+
+  document.getElementById("printBtn").addEventListener("click", () => {
+    window.print();
+  });
+
+  document.querySelectorAll(".scenario-btn[data-save]").forEach((btn) => {
+    btn.addEventListener("click", () => saveScenario(btn.dataset.save));
+  });
+  document.getElementById("clearScenarios").addEventListener("click", clearScenarios);
+
   // Initial render
+  syncTitle();
   calcRetirement();
   calcEmergency();
 })();

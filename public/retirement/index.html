@@ -15,9 +15,17 @@
     <div class="container header-inner">
       <div class="brand">
         <div class="brand-mark"></div>
-        <div>
+        <div class="brand-text">
           <h1>Wealth Planner</h1>
-          <p class="tagline">A considered view of your long horizon — and the cushion beneath it.</p>
+          <p class="tagline">For the long horizon — and the cushion beneath it.</p>
+        </div>
+        <div class="header-meta">
+          <label class="prepared-label">
+            <span class="prepared-eyebrow">Prepared for</span>
+            <input type="text" id="clientName" placeholder="Client name" autocomplete="off" />
+          </label>
+          <div class="date-stamp" id="dateStamp">—</div>
+          <button type="button" class="print-btn" id="printBtn" title="Print summary">Print</button>
         </div>
       </div>
     </div>
@@ -26,6 +34,12 @@
   <nav class="tabs container" role="tablist">
     <button class="tab active" data-tab="retirement" role="tab" aria-selected="true">Retirement Projection</button>
     <button class="tab" data-tab="emergency" role="tab" aria-selected="false">Emergency Corpus</button>
+    <div class="tabs-spacer"></div>
+    <div class="scenario-bar" id="scenarioBar">
+      <button type="button" class="scenario-btn" data-save="A">Save as Plan A</button>
+      <button type="button" class="scenario-btn" data-save="B">Save as Plan B</button>
+      <button type="button" class="scenario-btn" id="clearScenarios">Clear</button>
+    </div>
   </nav>
 
   <main class="container">
@@ -153,20 +167,41 @@
 
         <div class="col-results">
           <div class="card">
-            <div class="card-section">
-              <div class="section-eyebrow">Projection</div>
-              <h2>The picture at retirement</h2>
+            <div class="compare-panel" id="comparePanel" hidden>
+              <div class="compare-cell" data-plan="A">
+                <span class="compare-label">Plan A</span>
+                <span class="compare-value" data-plan-value="A">—</span>
+                <span class="compare-foot" data-plan-foot="A">—</span>
+              </div>
+              <div class="compare-cell" data-plan="B">
+                <span class="compare-label">Plan B</span>
+                <span class="compare-value" data-plan-value="B">—</span>
+                <span class="compare-foot" data-plan-foot="B">—</span>
+              </div>
+              <div class="compare-cell compare-delta">
+                <span class="compare-label">Difference</span>
+                <span class="compare-value" id="compareDelta">—</span>
+                <span class="compare-foot" id="compareDeltaFoot">—</span>
+              </div>
+            </div>
 
-              <div class="kpis">
-                <div class="kpi feature">
-                  <div class="kpi-label">Final corpus (nominal)</div>
-                  <div class="kpi-value" id="r-finalNominal">—</div>
+            <div class="card-section">
+              <div class="section-eyebrow">The picture at retirement</div>
+              <h2 id="r-headlineTitle">Your number</h2>
+
+              <div class="hero-kpi">
+                <div class="hero-kpi-main">
+                  <div class="kpi-label">Projected corpus at retirement</div>
+                  <div class="kpi-value hero" id="r-finalNominal">—</div>
                   <div class="kpi-foot" id="r-finalNominalSub">—</div>
                 </div>
-                <div class="kpi">
+                <div class="hero-kpi-aside">
                   <div class="kpi-label">In today's rupees</div>
                   <div class="kpi-value" id="r-finalReal">—</div>
                 </div>
+              </div>
+
+              <div class="kpis kpis-4">
                 <div class="kpi">
                   <div class="kpi-label">Total invested</div>
                   <div class="kpi-value" id="r-totalInvested">—</div>
@@ -184,12 +219,55 @@
                   <div class="kpi-value" id="r-years">—</div>
                 </div>
               </div>
+
+              <div class="cost-of-waiting" id="r-costOfWaiting">
+                <div class="cow-icon">!</div>
+                <div class="cow-body">
+                  <div class="cow-label">The cost of waiting</div>
+                  <div class="cow-value">—</div>
+                  <div class="cow-foot">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Crossings</div>
+              <h2>Milestones along the way</h2>
+              <p class="muted small">When the corpus crosses each landmark — turning the abstract into a calendar.</p>
+              <div class="timeline" id="r-timeline"></div>
             </div>
 
             <div class="card-section">
               <div class="section-eyebrow">Lifestyle test</div>
               <h2>Does the corpus fund the life you want?</h2>
               <div id="r-lifestyle" class="lifestyle"></div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Retirement years</div>
+              <h2>How the corpus draws down</h2>
+              <p class="muted small">Year-by-year balance through retirement, withdrawing the inflation-adjusted lifestyle target.</p>
+              <div class="chart-wrap depletion-wrap">
+                <canvas id="depletionChart"></canvas>
+              </div>
+              <div class="depletion-note" id="r-depletionNote"></div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Composition</div>
+              <h2>How the picture breaks down</h2>
+              <div class="donut-grid">
+                <div class="donut-cell">
+                  <div class="donut-title">Where money is invested</div>
+                  <div class="donut-canvas-wrap"><canvas id="allocationDonut"></canvas></div>
+                  <div class="donut-legend" id="allocationLegend"></div>
+                </div>
+                <div class="donut-cell">
+                  <div class="donut-title">Where money is spent</div>
+                  <div class="donut-canvas-wrap"><canvas id="expenseDonut"></canvas></div>
+                  <div class="donut-legend" id="expenseLegend"></div>
+                </div>
+              </div>
             </div>
 
             <div class="card-section">
@@ -201,7 +279,7 @@
               </div>
             </div>
 
-            <div class="card-section">
+            <div class="card-section page-break-before">
               <div class="section-eyebrow">Year by year</div>
               <h2>The full schedule</h2>
               <div class="table-wrap">
@@ -372,7 +450,13 @@
   </main>
 
   <footer class="site-footer container">
-    <p>Projections only. Returns, inflation, and life are variable — review the plan annually.</p>
+    <div class="footer-inner">
+      <label class="footer-prepared">
+        <span>Prepared by</span>
+        <input type="text" id="advisorName" placeholder="Your name" autocomplete="off" />
+      </label>
+      <p class="footer-disc">Projections only. Returns, inflation, and life are variable — review the plan annually.</p>
+    </div>
   </footer>
 
   <script src="script.js"></script>
