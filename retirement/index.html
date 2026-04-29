@@ -72,7 +72,24 @@
             </div>
 
             <div class="card-section">
-              <div class="section-eyebrow">03 — Assumptions</div>
+              <div class="section-eyebrow">03 — Monthly outflows today</div>
+              <h2>What does life cost each month?</h2>
+              <p class="muted small">Walk through each line as the client describes it. EMIs carry a closing year — once paid off, they drop out of the retirement-spend forecast automatically.</p>
+
+              <div class="ledger" id="r-expenses"></div>
+
+              <div class="ledger-footer">
+                <span>Total monthly outflows</span>
+                <span class="ledger-grand" id="r-expenseTotal">₹ 0</span>
+              </div>
+              <div class="ledger-subfoot">
+                <span>Projected monthly outflow at retirement (EMIs that close before then are removed, today's rupees)</span>
+                <span class="ledger-grand muted-grand" id="r-expenseAtRetire">₹ 0</span>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">04 — Assumptions</div>
               <h2>The market, the rupee, the discipline</h2>
 
               <div class="field-row">
@@ -102,17 +119,20 @@
             </div>
 
             <div class="card-section">
-              <div class="section-eyebrow">04 — Lifestyle in retirement (optional)</div>
+              <div class="section-eyebrow">05 — Lifestyle in retirement</div>
               <h2>What does retired life cost today?</h2>
-              <p class="muted small">In today's rupees. We inflate it to retirement and assess the gap.</p>
+              <p class="muted small">Pre-filled from the projected at-retirement outflow above. Adjust if the client expects a different lifestyle in retirement (downsizing, more travel, etc.).</p>
 
               <label>
-                Target monthly spend in retirement
+                Target monthly spend in retirement (today's rupees)
                 <div class="input-prefix">
                   <span>₹</span>
                   <input type="number" id="r-targetSpend" value="200000" min="0" step="5000" />
                 </div>
               </label>
+              <div class="field-helper">
+                <button type="button" class="link-btn" id="r-syncTarget">Use the projected at-retirement outflow</button>
+              </div>
 
               <div class="field-row">
                 <label>
@@ -211,33 +231,36 @@
         <div class="col-form">
           <div class="card">
             <div class="card-section">
-              <div class="section-eyebrow">01 — Where you stand</div>
+              <div class="section-eyebrow">01 — Where you stand today</div>
               <h2>Today's position</h2>
+              <p class="muted small">Capture only what is genuinely earmarked for emergencies — not long-term investments that would require a tax event or market exit to access.</p>
 
               <label>
-                Emergency corpus already set aside
+                Liquid corpus already earmarked for emergencies
+                <span class="field-hint">Cash in savings, sweep-in FD, or liquid mutual funds — money you can access within 24–48 hours without breaking long-term holdings.</span>
                 <div class="input-prefix">
                   <span>₹</span>
                   <input type="number" id="e-currentCorpus" value="500000" min="0" step="10000" />
                 </div>
               </label>
 
-              <div class="field-row">
-                <label>
-                  Currently saving each month for this fund
-                  <div class="input-prefix">
-                    <span>₹</span>
-                    <input type="number" id="e-currentSaving" value="25000" min="0" step="1000" />
-                  </div>
-                </label>
-                <label>
-                  Yield on parked corpus (annual)
-                  <div class="input-suffix">
-                    <input type="number" id="e-rate" value="7" min="0" max="20" step="0.1" />
-                    <span>%</span>
-                  </div>
-                </label>
-              </div>
+              <label>
+                Monthly contribution flowing into this corpus today
+                <span class="field-hint">A standing instruction, recurring deposit, or the amount the client deliberately sets aside each month for this fund — separate from regular SIPs into long-term investments. Enter 0 if it isn't yet automated.</span>
+                <div class="input-prefix">
+                  <span>₹</span>
+                  <input type="number" id="e-currentSaving" value="25000" min="0" step="1000" />
+                </div>
+              </label>
+
+              <label>
+                Indicative yield on the parked corpus
+                <span class="field-hint">Liquid mutual funds typically deliver 6.5–7.5%; sweep-in FDs 5–7%; pure savings 3–4%.</span>
+                <div class="input-suffix">
+                  <input type="number" id="e-rate" value="7" min="0" max="20" step="0.1" />
+                  <span>%</span>
+                </div>
+              </label>
             </div>
 
             <div class="card-section">

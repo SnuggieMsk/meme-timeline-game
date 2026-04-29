@@ -8,6 +8,8 @@
   // ============================================================
   // Expense / instrument ledger schemas
   // ============================================================
+  const CURRENT_YEAR = new Date().getFullYear();
+
   const RETIREMENT_INSTRUMENTS = [
     { id: "equity-mf", label: "Equity mutual funds (SIP)", hint: "Diversified, large/mid/flexi cap", default: 60000 },
     { id: "ppf-epf", label: "PPF & EPF", hint: "Tax-favored, sovereign-backed", default: 25000 },
@@ -17,6 +19,20 @@
     { id: "direct-equity", label: "Direct equity", hint: "Concentrated convictions", default: 0 },
     { id: "alts", label: "AIF / PMS / unlisted", hint: "Alternates, REITs, gold", default: 0 },
     { id: "other-inv", label: "Other recurring investment", hint: "", default: 0 },
+  ];
+
+  const RETIREMENT_EXPENSES = [
+    { id: "housing", label: "Housing — rent, society dues, property tax", hint: "Excludes home-loan EMI", default: 35000 },
+    { id: "emi-home", label: "Home loan EMI", hint: "Set the closing year", default: 90000, hasStop: true, defaultStopYear: CURRENT_YEAR + 14 },
+    { id: "emi-auto", label: "Auto / vehicle loan EMI", hint: "Set the closing year", default: 22000, hasStop: true, defaultStopYear: CURRENT_YEAR + 4 },
+    { id: "emi-other", label: "Other loan EMIs (personal, education)", hint: "Set the closing year", default: 12000, hasStop: true, defaultStopYear: CURRENT_YEAR + 5 },
+    { id: "utilities", label: "Utilities & connectivity", hint: "Power, water, gas, internet, mobile", default: 14000 },
+    { id: "groceries", label: "Groceries & household running", hint: "Provisions, daily needs", default: 35000 },
+    { id: "domestic", label: "Domestic help, cook, driver", hint: "", default: 22000 },
+    { id: "education", label: "Children's education & dependents", hint: "Fees, coaching, parental support", default: 45000 },
+    { id: "healthcare", label: "Healthcare & insurance premia", hint: "Premiums + routine medical", default: 18000 },
+    { id: "lifestyle", label: "Lifestyle — dining, travel, leisure, shopping", hint: "Annualised monthly equivalent", default: 70000 },
+    { id: "other-out", label: "Other recurring outflows", hint: "", default: 8000 },
   ];
 
   const ESSENTIALS = [
@@ -48,25 +64,37 @@
   // ============================================================
   function buildLedger(containerId, items) {
     const c = document.getElementById(containerId);
+    const hasAnyStop = items.some((i) => i.hasStop);
+    if (hasAnyStop) c.classList.add("has-stop");
     c.innerHTML = items
-      .map(
-        (it) => `
-        <div class="ledger-row">
+      .map((it) => {
+        const stopCell = it.hasStop
+          ? `<div class="ledger-stop">
+               <input type="number" class="stop-year" data-stop="${it.id}" value="${it.defaultStopYear}" min="${CURRENT_YEAR}" max="${CURRENT_YEAR + 60}" placeholder="Year ends" />
+               <span class="stop-suffix">closes</span>
+             </div>`
+          : hasAnyStop
+          ? `<div class="ledger-stop ledger-stop-empty"><span>—</span></div>`
+          : "";
+        return `
+        <div class="ledger-row${it.hasStop ? " has-stop" : ""}">
           <div>
             <span class="ledger-label">${it.label}</span>
             ${it.hint ? `<span class="ledger-hint">${it.hint}</span>` : ""}
           </div>
+          ${stopCell}
           <div class="input-prefix">
             <span>₹</span>
             <input type="number" data-key="${it.id}" value="${it.default}" min="0" step="500" />
           </div>
         </div>
-      `
-      )
+      `;
+      })
       .join("");
   }
 
   buildLedger("r-instruments", RETIREMENT_INSTRUMENTS);
+  buildLedger("r-expenses", RETIREMENT_EXPENSES);
   buildLedger("e-essentials", ESSENTIALS);
   buildLedger("e-discretionary", DISCRETIONARY);
 
@@ -81,11 +109,28 @@
   }
 
   function ledgerSum(containerId) {
-    const inputs = document.querySelectorAll(`#${containerId} input[type="number"]`);
+    const inputs = document.querySelectorAll(`#${containerId} input[type="number"][data-key]`);
     let total = 0;
     inputs.forEach((i) => {
       const v = parseFloat(i.value);
       if (isFinite(v)) total += v;
+    });
+    return total;
+  }
+
+  function ledgerSumActiveAtYear(containerId, targetYear) {
+    const rows = document.querySelectorAll(`#${containerId} .ledger-row`);
+    let total = 0;
+    rows.forEach((row) => {
+      const amtInput = row.querySelector('input[type="number"][data-key]');
+      const stopInput = row.querySelector('input[type="number"][data-stop]');
+      const v = parseFloat(amtInput && amtInput.value);
+      if (!isFinite(v)) return;
+      if (stopInput) {
+        const stop = parseFloat(stopInput.value);
+        if (isFinite(stop) && stop < targetYear) return; // EMI has closed by retirement
+      }
+      total += v;
     });
     return total;
   }
@@ -142,6 +187,14 @@
     const postRate = num("r-postRate") / 100;
 
     const years = Math.max(0, retireAge - currentAge);
+    const retirementYear = CURRENT_YEAR + years;
+
+    const expenseTotal = ledgerSum("r-expenses");
+    const expenseAtRetire = ledgerSumActiveAtYear("r-expenses", retirementYear);
+    document.getElementById("r-expenseTotal").textContent = fmtINR.format(expenseTotal);
+    document.getElementById("r-expenseAtRetire").textContent = fmtINR.format(expenseAtRetire);
+    // expose for the sync button
+    window.__projectedAtRetire = expenseAtRetire;
     const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
 
     const rows = [];
@@ -427,9 +480,9 @@
       `Base ${fmtINR.format(currentSaving)} + trim ${fmtINR.format(trimAmount)} + top-up ${fmtINR.format(aggressiveTopup)}`;
 
     const goals = [
-      { months: 3, label: "Three-month cushion", sub: "Short shock — medical, transition" },
-      { months: 6, label: "Six-month buffer", sub: "Standard private-banking floor" },
-      { months: 9, label: "Nine-month armour", sub: "For volatile sectors and long sabbaticals" },
+      { months: 3, label: "Three-month cushion", sub: "Absorbs a short shock — medical event, role transition" },
+      { months: 6, label: "Six-month buffer", sub: "The conventional resilience standard" },
+      { months: 9, label: "Nine-month armour", sub: "For volatile sectors, sabbaticals, founder runways" },
     ];
 
     const goalsEl = document.getElementById("e-goals");
@@ -678,6 +731,18 @@
 
   document.querySelector("#retirement").addEventListener("input", recalcRet);
   document.querySelector("#emergency").addEventListener("input", recalcEm);
+
+  // Sync target spend with projected at-retirement outflow
+  const syncBtn = document.getElementById("r-syncTarget");
+  if (syncBtn) {
+    syncBtn.addEventListener("click", () => {
+      const v = window.__projectedAtRetire;
+      if (isFinite(v) && v > 0) {
+        document.getElementById("r-targetSpend").value = Math.round(v);
+        calcRetirement();
+      }
+    });
+  }
 
   // Initial render
   calcRetirement();
