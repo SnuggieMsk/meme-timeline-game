@@ -3,20 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Retirement & Emergency Corpus Calculator</title>
+  <title>Wealth Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <h1>Money Runway</h1>
-      <p class="tagline">Plan the long horizon. Cushion the short one.</p>
+      <div class="brand">
+        <div class="brand-mark"></div>
+        <div>
+          <h1>Wealth Planner</h1>
+          <p class="tagline">A considered view of your long horizon — and the cushion beneath it.</p>
+        </div>
+      </div>
     </div>
   </header>
 
   <nav class="tabs container" role="tablist">
-    <button class="tab active" data-tab="retirement" role="tab" aria-selected="true">Retirement Calculator</button>
+    <button class="tab active" data-tab="retirement" role="tab" aria-selected="true">Retirement Projection</button>
     <button class="tab" data-tab="emergency" role="tab" aria-selected="false">Emergency Corpus</button>
   </nav>
 
@@ -24,117 +32,174 @@
     <!-- ============== RETIREMENT SECTION ============== -->
     <section id="retirement" class="panel active" role="tabpanel">
       <div class="grid">
-        <div class="card form-card">
-          <h2>Inputs</h2>
-          <p class="muted">Project how your investments grow till retirement, in real terms.</p>
+        <div class="col-form">
+          <div class="card">
+            <div class="card-section">
+              <div class="section-eyebrow">01 — About you</div>
+              <h2>Your horizon</h2>
 
-          <div class="field-row">
-            <label>
-              Current age
-              <input type="number" id="r-currentAge" value="30" min="15" max="80" />
-            </label>
-            <label>
-              Retirement age
-              <input type="number" id="r-retireAge" value="60" min="20" max="90" />
-            </label>
-          </div>
-
-          <label>
-            Current investments / starting corpus
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="r-startCorpus" value="500000" min="0" step="1000" />
-            </div>
-          </label>
-
-          <label>
-            Monthly contribution (SIP / savings)
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="r-monthly" value="20000" min="0" step="500" />
-            </div>
-          </label>
-
-          <div class="field-row">
-            <label>
-              Expected return (annual)
-              <div class="input-suffix">
-                <input type="number" id="r-rate" value="11" min="0" max="40" step="0.1" />
-                <span>%</span>
+              <div class="field-row">
+                <label>
+                  Current age
+                  <input type="number" id="r-currentAge" value="42" min="15" max="80" />
+                </label>
+                <label>
+                  Retirement age
+                  <input type="number" id="r-retireAge" value="60" min="20" max="90" />
+                </label>
               </div>
-            </label>
-            <label>
-              Inflation (annual)
-              <div class="input-suffix">
-                <input type="number" id="r-inflation" value="6" min="0" max="30" step="0.1" />
-                <span>%</span>
-              </div>
-            </label>
-          </div>
 
-          <label>
-            Annual step-up in contribution (optional)
-            <div class="input-suffix">
-              <input type="number" id="r-stepup" value="5" min="0" max="50" step="0.5" />
-              <span>%</span>
+              <label>
+                Existing investible corpus
+                <div class="input-prefix">
+                  <span>₹</span>
+                  <input type="number" id="r-startCorpus" value="5000000" min="0" step="10000" />
+                </div>
+              </label>
             </div>
-          </label>
 
-          <button id="r-calc" class="btn primary">Calculate</button>
+            <div class="card-section">
+              <div class="section-eyebrow">02 — Monthly investment, by instrument</div>
+              <h2>What you're putting in each month</h2>
+              <p class="muted small">Walk through each bucket. The total feeds the projection.</p>
+
+              <div class="ledger" id="r-instruments"></div>
+
+              <div class="ledger-footer">
+                <span>Total monthly investment</span>
+                <span class="ledger-grand" id="r-monthlyTotal">₹ 0</span>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">03 — Assumptions</div>
+              <h2>The market, the rupee, the discipline</h2>
+
+              <div class="field-row">
+                <label>
+                  Blended return (annual)
+                  <div class="input-suffix">
+                    <input type="number" id="r-rate" value="11" min="0" max="40" step="0.1" />
+                    <span>%</span>
+                  </div>
+                </label>
+                <label>
+                  Inflation (annual)
+                  <div class="input-suffix">
+                    <input type="number" id="r-inflation" value="6" min="0" max="30" step="0.1" />
+                    <span>%</span>
+                  </div>
+                </label>
+              </div>
+
+              <label>
+                Annual step-up in monthly investment
+                <div class="input-suffix">
+                  <input type="number" id="r-stepup" value="8" min="0" max="50" step="0.5" />
+                  <span>%</span>
+                </div>
+              </label>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">04 — Lifestyle in retirement (optional)</div>
+              <h2>What does retired life cost today?</h2>
+              <p class="muted small">In today's rupees. We inflate it to retirement and assess the gap.</p>
+
+              <label>
+                Target monthly spend in retirement
+                <div class="input-prefix">
+                  <span>₹</span>
+                  <input type="number" id="r-targetSpend" value="200000" min="0" step="5000" />
+                </div>
+              </label>
+
+              <div class="field-row">
+                <label>
+                  Years to plan for in retirement
+                  <input type="number" id="r-retYears" value="25" min="5" max="50" />
+                </label>
+                <label>
+                  Post-retirement return
+                  <div class="input-suffix">
+                    <input type="number" id="r-postRate" value="7" min="0" max="20" step="0.1" />
+                    <span>%</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="card result-card">
-          <h2>Projection</h2>
-          <div class="kpis">
-            <div class="kpi">
-              <div class="kpi-label">Final corpus (nominal)</div>
-              <div class="kpi-value" id="r-finalNominal">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Final corpus (today's value)</div>
-              <div class="kpi-value" id="r-finalReal">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Total invested</div>
-              <div class="kpi-value" id="r-totalInvested">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Total returns</div>
-              <div class="kpi-value" id="r-totalReturns">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Real return rate</div>
-              <div class="kpi-value" id="r-realRate">—</div>
-            </div>
-            <div class="kpi">
-              <div class="kpi-label">Years to retirement</div>
-              <div class="kpi-value" id="r-years">—</div>
-            </div>
-          </div>
+        <div class="col-results">
+          <div class="card">
+            <div class="card-section">
+              <div class="section-eyebrow">Projection</div>
+              <h2>The picture at retirement</h2>
 
-          <h3 class="section-title">Corpus waterfall</h3>
-          <p class="muted small">
-            See how each year layers on: starting corpus, contributions, and the compounding returns that stack on top.
-          </p>
-          <div class="chart-wrap">
-            <canvas id="waterfallChart"></canvas>
-          </div>
+              <div class="kpis">
+                <div class="kpi feature">
+                  <div class="kpi-label">Final corpus (nominal)</div>
+                  <div class="kpi-value" id="r-finalNominal">—</div>
+                  <div class="kpi-foot" id="r-finalNominalSub">—</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">In today's rupees</div>
+                  <div class="kpi-value" id="r-finalReal">—</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Total invested</div>
+                  <div class="kpi-value" id="r-totalInvested">—</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Wealth from compounding</div>
+                  <div class="kpi-value" id="r-totalReturns">—</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Real return</div>
+                  <div class="kpi-value" id="r-realRate">—</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-label">Years of accumulation</div>
+                  <div class="kpi-value" id="r-years">—</div>
+                </div>
+              </div>
+            </div>
 
-          <h3 class="section-title">Year-by-year breakdown</h3>
-          <div class="table-wrap">
-            <table class="data-table" id="r-table">
-              <thead>
-                <tr>
-                  <th>Age</th>
-                  <th>Opening</th>
-                  <th>Contribution</th>
-                  <th>Returns</th>
-                  <th>Closing</th>
-                  <th>In today's ₹</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="card-section">
+              <div class="section-eyebrow">Lifestyle test</div>
+              <h2>Does the corpus fund the life you want?</h2>
+              <div id="r-lifestyle" class="lifestyle"></div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Layer by layer</div>
+              <h2>Corpus waterfall</h2>
+              <p class="muted small">Each band shows how the corpus is built — the carried-forward base, fresh capital you commit, and the compounding it earns on top.</p>
+              <div class="chart-wrap">
+                <canvas id="waterfallChart"></canvas>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Year by year</div>
+              <h2>The full schedule</h2>
+              <div class="table-wrap">
+                <table class="data-table" id="r-table">
+                  <thead>
+                    <tr>
+                      <th>Age</th>
+                      <th>Opening</th>
+                      <th>Contribution</th>
+                      <th>Returns</th>
+                      <th>Closing</th>
+                      <th>In today's ₹</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -143,109 +208,140 @@
     <!-- ============== EMERGENCY SECTION ============== -->
     <section id="emergency" class="panel" role="tabpanel">
       <div class="grid">
-        <div class="card form-card">
-          <h2>Emergency Corpus Inputs</h2>
-          <p class="muted">
-            Build a buffer for a life event or an unstable job market. Aim for 3, 6, or 9 months of essential expenses.
-          </p>
+        <div class="col-form">
+          <div class="card">
+            <div class="card-section">
+              <div class="section-eyebrow">01 — Where you stand</div>
+              <h2>Today's position</h2>
 
-          <label>
-            Current emergency corpus (savings set aside)
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="e-currentCorpus" value="50000" min="0" step="1000" />
+              <label>
+                Emergency corpus already set aside
+                <div class="input-prefix">
+                  <span>₹</span>
+                  <input type="number" id="e-currentCorpus" value="500000" min="0" step="10000" />
+                </div>
+              </label>
+
+              <div class="field-row">
+                <label>
+                  Currently saving each month for this fund
+                  <div class="input-prefix">
+                    <span>₹</span>
+                    <input type="number" id="e-currentSaving" value="25000" min="0" step="1000" />
+                  </div>
+                </label>
+                <label>
+                  Yield on parked corpus (annual)
+                  <div class="input-suffix">
+                    <input type="number" id="e-rate" value="7" min="0" max="20" step="0.1" />
+                    <span>%</span>
+                  </div>
+                </label>
+              </div>
             </div>
-          </label>
 
-          <label>
-            Fixed monthly expenses (rent, EMIs, utilities, groceries, insurance)
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="e-fixed" value="40000" min="0" step="500" />
+            <div class="card-section">
+              <div class="section-eyebrow">02 — Essential monthly expenses</div>
+              <h2>The non-negotiables</h2>
+              <p class="muted small">Walk through each line as the client describes their month. The total drives the 3 / 6 / 9-month targets.</p>
+
+              <div class="ledger" id="e-essentials"></div>
+
+              <div class="ledger-footer">
+                <span>Essentials per month</span>
+                <span class="ledger-grand" id="e-essTotal">₹ 0</span>
+              </div>
             </div>
-          </label>
 
-          <label>
-            Discretionary monthly spend you could cut down (eating out, subscriptions, shopping)
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="e-cutdown" value="10000" min="0" step="500" />
+            <div class="card-section">
+              <div class="section-eyebrow">03 — Discretionary monthly spend</div>
+              <h2>Lifestyle outflows</h2>
+              <p class="muted small">These don't count toward the cushion target — but they're the lever for accelerating the plan.</p>
+
+              <div class="ledger" id="e-discretionary"></div>
+
+              <div class="ledger-footer">
+                <span>Discretionary per month</span>
+                <span class="ledger-grand" id="e-discTotal">₹ 0</span>
+              </div>
             </div>
-          </label>
 
-          <label>
-            Extra you can aggressively save each month (over and above current saving)
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="e-aggressive" value="5000" min="0" step="500" />
+            <div class="card-section">
+              <div class="section-eyebrow">04 — Acceleration plan</div>
+              <h2>Where can we move faster?</h2>
+
+              <label>
+                Share of discretionary you'll redirect to this fund
+                <div class="slider-wrap">
+                  <input type="range" id="e-trimPct" min="0" max="100" step="5" value="40" />
+                  <output id="e-trimPctOut">40%</output>
+                </div>
+              </label>
+
+              <label>
+                Additional aggressive top-up each month
+                <div class="input-prefix">
+                  <span>₹</span>
+                  <input type="number" id="e-aggressive" value="10000" min="0" step="1000" />
+                </div>
+              </label>
             </div>
-          </label>
-
-          <label>
-            Current monthly saving going to this fund
-            <div class="input-prefix">
-              <span>₹</span>
-              <input type="number" id="e-currentSaving" value="5000" min="0" step="500" />
-            </div>
-          </label>
-
-          <label>
-            Interest on parked corpus (savings/liquid fund, annual)
-            <div class="input-suffix">
-              <input type="number" id="e-rate" value="6" min="0" max="20" step="0.1" />
-              <span>%</span>
-            </div>
-          </label>
-
-          <button id="e-calc" class="btn primary">Calculate</button>
+          </div>
         </div>
 
-        <div class="card result-card">
-          <h2>Where you stand</h2>
-
-          <div class="goals" id="e-goals">
-            <!-- Goal rows injected -->
-          </div>
-
-          <h3 class="section-title">Current pace vs Aggressive pace</h3>
-          <p class="muted small">
-            Aggressive pace = current saving + amount you cut from discretionary + extra aggressive saving.
-          </p>
-
-          <div class="kpis kpi-pair">
-            <div class="kpi">
-              <div class="kpi-label">Saving / month — current</div>
-              <div class="kpi-value" id="e-paceCurrent">—</div>
+        <div class="col-results">
+          <div class="card">
+            <div class="card-section">
+              <div class="section-eyebrow">Milestones</div>
+              <h2>Three, six, nine</h2>
+              <div class="goals" id="e-goals"></div>
             </div>
-            <div class="kpi highlight">
-              <div class="kpi-label">Saving / month — aggressive</div>
-              <div class="kpi-value" id="e-paceAggressive">—</div>
+
+            <div class="card-section">
+              <div class="section-eyebrow">Pace comparison</div>
+              <h2>Steady versus accelerated</h2>
+
+              <div class="kpis kpi-pair">
+                <div class="kpi">
+                  <div class="kpi-label">Saving — current</div>
+                  <div class="kpi-value" id="e-paceCurrent">—</div>
+                </div>
+                <div class="kpi feature">
+                  <div class="kpi-label">Saving — accelerated</div>
+                  <div class="kpi-value" id="e-paceAggressive">—</div>
+                  <div class="kpi-foot" id="e-paceBreakdown">—</div>
+                </div>
+              </div>
+
+              <div class="chart-wrap">
+                <canvas id="emergencyChart"></canvas>
+              </div>
             </div>
-          </div>
 
-          <div class="chart-wrap">
-            <canvas id="emergencyChart"></canvas>
-          </div>
+            <div class="card-section">
+              <div class="section-eyebrow">Time to milestone</div>
+              <h2>How long until each cushion is in place</h2>
+              <div class="table-wrap">
+                <table class="data-table" id="e-table">
+                  <thead>
+                    <tr>
+                      <th>Milestone</th>
+                      <th>Target</th>
+                      <th>Gap</th>
+                      <th>At current pace</th>
+                      <th>At accelerated pace</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
 
-          <h3 class="section-title">Time to reach each goal</h3>
-          <div class="table-wrap">
-            <table class="data-table" id="e-table">
-              <thead>
-                <tr>
-                  <th>Goal</th>
-                  <th>Target</th>
-                  <th>Gap</th>
-                  <th>At current pace</th>
-                  <th>At aggressive pace</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-
-          <div class="tips">
-            <h3 class="section-title">Suggested attack plan</h3>
-            <ul id="e-tips"></ul>
+            <div class="card-section">
+              <div class="section-eyebrow">Recommendations</div>
+              <h2>Plan of action</h2>
+              <ul class="tips" id="e-tips"></ul>
+            </div>
           </div>
         </div>
       </div>
@@ -253,7 +349,7 @@
   </main>
 
   <footer class="site-footer container">
-    <p>Numbers are projections. Actual returns, inflation, and life are messier — revisit yearly.</p>
+    <p>Projections only. Returns, inflation, and life are variable — review the plan annually.</p>
   </footer>
 
   <script src="script.js"></script>
